@@ -16,6 +16,9 @@ from importlib import reload
 from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSetting
 from datetime import datetime
 
+import pandas as pd
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 
 # 定义使用的函数
 def run_backtesting(strategy_class, setting, vt_symbol, interval, start, end, rate, slippage, size, pricetick, capital):
@@ -38,18 +41,23 @@ def run_backtesting(strategy_class, setting, vt_symbol, interval, start, end, ra
     return df
 
 # 运行策略函数
+
+
+
+
+
+
+
 def show_portafolio(df):
     engine = BacktestingEngine()
     engine.calculate_statistics(df)
-    engine.show_chart(df)
+    engine.show_chart_plo(df)
 
 
 # 导入第一个策略
 from vnpy.huicheshuju.class_strategy.AtrStop_UT import AtrStop_Ut
-import AtrStop_UT
-from vnpy.huicheshuju.class_strategy.RSI_Vix_Dc import RsiVixDcStrategy
-from vnpy.huicheshuju.class_strategy.Vix_Keltnerl import VixKeltnerl
-reload(AtrStop_UT)
+
+
 
 df1 = run_backtesting(
     strategy_class=AtrStop_Ut,

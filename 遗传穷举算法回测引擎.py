@@ -10,7 +10,9 @@ from vnpy.app.cta_strategy.backtesting import BacktestingEngine, OptimizationSet
 
 import pandas as pd
 pd.set_option('expand_frame_repr', False)
-from vnpy.huicheshuju.backtestingengine.back_testing_to_csv import to_csv_result,Backtest
+from vnpy.huicheshuju.backtestingengine.back_testing_to_csv import *
+from vnpy.huicheshuju.strategy.vnpygithub.back_testing_to_csv import Backtest
+
 
 
 # 导入策略

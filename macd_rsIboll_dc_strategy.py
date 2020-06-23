@@ -49,7 +49,7 @@ class MacdRsibollDcStrategy(CtaTemplate):
     trailing_tax = 2.0
     risk_level = 5000
 
-    exit_dowm = 0
+    exit_down = 0
     exit_up = 0
     macd = 0
     macd_entry = 0
@@ -78,7 +78,7 @@ class MacdRsibollDcStrategy(CtaTemplate):
     ]
 
     variables = [
-                "exit_dowm",
+                "exit_down",
                 "exit_up",
                 "macd",
                 "macd_entry",
@@ -193,7 +193,7 @@ class MacdRsibollDcStrategy(CtaTemplate):
             self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
             long_high = self.intra_trade_high * \
                             (1 - self.trailing_tax / 100)
-            self.long_stop = max(self.exit_dowm, long_high)
+            self.long_stop = max(self.exit_down, long_high)
             self.sell(self.long_stop, abs(self.pos), True)
 
         elif self.pos < 0:

@@ -54,7 +54,7 @@ class MacdBollDcStrategy(CtaTemplate):
 
 
 
-    param_xminuteeters = [
+    parameters = [
                     "open_window",
                     "xminute_window",
                     "xhour_window",

@@ -17,7 +17,7 @@ from vnpy.app.cta_strategy import (
 )
 import talib
 from  vnpy.app.cta_strategy.new_strategy import NewBarGenerator
-from vnpy.trader.constant import Direction
+from vnpy.trader.constant import Direction, Interval
 
 
 class MacdBollDcStrategy(CtaTemplate):
@@ -27,8 +27,9 @@ class MacdBollDcStrategy(CtaTemplate):
 
     open_window = 2
     xminute_window = 15
-    fast_length = 12
-    show_length = 26
+    xhour_window = 1
+    fast_length = 14
+    show_length = 28
     boll_length = 20
     boll_dev = 2.0
     dc_length = 30
@@ -53,9 +54,10 @@ class MacdBollDcStrategy(CtaTemplate):
 
 
 
-    param_xminuteeters = [
+    parameters = [
                     "open_window",
                     "xminute_window",
+                    "xhour_window",
                     "fast_length",
                     "show_length",
                     "boll_length",
@@ -85,7 +87,13 @@ class MacdBollDcStrategy(CtaTemplate):
         self.am_open = ArrayManager()
 
         self.bg_xminute = NewBarGenerator(self.on_bar, self.xminute_window, self.on_xminute_bar)
-        self.am_xminute = ArrayManager()
+        self.am_xminute = ArrayManager(150)
+
+        self.bg_xhour = NewBarGenerator(self.on_bar,
+                                        self.xhour_window,
+                                        self.on_xhour_bar,
+                                        interval=Interval.HOUR)
+        self.am_xhour = ArrayManager()
 
     def on_init(self):
         """
@@ -118,6 +126,7 @@ class MacdBollDcStrategy(CtaTemplate):
         """
         Callback of new bar data update.
         """
+        self.bg_xhour.update_bar(bar)
         self.bg_xminute.update_bar(bar)
         self.bg_open.update_bar(bar)
 
@@ -130,7 +139,20 @@ class MacdBollDcStrategy(CtaTemplate):
 
             return
 
-        if self.pos > 0:
+        if self.pos == 0:
+            self.intra_trade_high = bar.high_price
+            self.intra_trade_low = bar.low_price
+
+            self.long_stop = 0
+            self.short_stop = 0
+
+            if self.macd_inited > 0:
+                self.buy(self.boll_up,self.fixed_size,True)
+
+            elif self.macd_inited < 0:
+                self.short(self.boll_down,self.fixed_size,True)
+
+        elif self.pos > 0:
                 self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
                 self.intra_trade_low = bar.low_price
 
@@ -140,7 +162,6 @@ class MacdBollDcStrategy(CtaTemplate):
                 self.sell(self.long_stop, abs(self.pos), True)
 
         elif self.pos < 0:
-
                 self.intra_trade_high = bar.high_price
                 self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
 
@@ -148,21 +169,6 @@ class MacdBollDcStrategy(CtaTemplate):
                 self.short_stop = min(self.exit_short,stop_low)
 
                 self.cover(self.short_stop, abs(self.pos), True)
-
-
-        else:
-            self.intra_trade_high = bar.high_price
-            self.intra_trade_low = bar.low_price
-            self.atr_value = self.am_xminute.atr(14)
-
-            self.long_stop = 0
-            self.short_stop = 0
-
-            if self.macd_inited > 0:
-                self.buy(self.boll_up,self.fixed_size)
-
-            elif self.macd_inited < 0 :
-                self.short(self.boll_down,self.fixed_size)
 
         self.put_event()
 
@@ -175,22 +181,26 @@ class MacdBollDcStrategy(CtaTemplate):
         self.boll_up, self.boll_down = self.am_xminute.boll(self.boll_length, self.boll_dev)
         self.exit_short, self.exit_long = self.am_xminute.donchian(self.dc_length)
 
-        fast_ema_value = self.am_xminute.ema(self.fast_length,True)
-        show_ema_value = self.am_xminute.ema(self.show_length,True)
+    def on_xhour_bar(self,bar:BarData):
+        """
+        :param bar:
+        :type bar:
+        :return:
+        :rtype:
+        """
+        self.am_xhour.update_bar(bar)
+        if self.am_xhour.inited:
+            return
+        fast_ema_value = self.am_xhour.ema(self.fast_length, True)
+        show_ema_value = self.am_xhour.ema(self.show_length, True)
         diff = fast_ema_value - show_ema_value
         macd_diff = (fast_ema_value - show_ema_value) / show_ema_value * 100
 
-        current_diff = diff[-1]
-        last_diff = diff[-2]
-        current_macddiff = macd_diff[-1]
-        last_macddiff = macd_diff[-2]
-
-        if current_diff > current_macddiff and last_diff <=last_macddiff:
+        if diff[-2] > macd_diff[-2]:
             self.macd_inited = 1
-        elif current_diff < current_macddiff and last_diff >= last_macddiff:
+
+        elif diff[-2] < macd_diff[-2]:
             self.macd_inited = -1
-        else:
-            self.macd_inited = 0
 
     def on_order(self, order: OrderData):
         """

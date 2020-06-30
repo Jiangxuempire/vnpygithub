@@ -47,7 +47,7 @@ class MacdRsibollDcStrategy(CtaTemplate):
     dc_length = 20
     atr_window = 30
     trailing_tax = 2.0
-    risk_level = 5000
+    risk_level = 1
 
     exit_down = 0
     exit_up = 0
@@ -114,7 +114,7 @@ class MacdRsibollDcStrategy(CtaTemplate):
             window=self.minute_window,
             on_window_bar=self.on_xminute_bar
         )
-        self.am_xminute = ArrayManager()
+        self.am_xminute = ArrayManager(self.boll_length + 100)
 
         self.bg_open = NewBarGenerator(
             on_bar=self.on_bar,

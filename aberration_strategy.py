@@ -30,6 +30,8 @@ class AberrationStrategy(CtaTemplate):
     cci_exit = 10.0
     fixed_size = 1
 
+    boll_up = 0
+    boll_down = 0
     boll_mid = 0
     boll_mid_new = 0
     cci_value = 0
@@ -52,6 +54,8 @@ class AberrationStrategy(CtaTemplate):
                 ]
 
     variables = [
+                "boll_up",
+                "boll_down",
                 "boll_mid",
                 "cci_value",
                 "exit_long",

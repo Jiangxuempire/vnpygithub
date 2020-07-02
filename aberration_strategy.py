@@ -163,6 +163,8 @@ class AberrationStrategy(CtaTemplate):
                     if self.am.close[-1] > ((self.boll_mid + self.boll_mid_new[-1]) / 2 ):
                         self.exit_long = bar.close_price
                         # print(f"我是多单，收盘价在两个中轨均值上方，以收盘价挂止损单:{self.exit_long}")
+                    elif bar.close_price < self.boll_mid:
+                        self.exit_long = bar.close_price
                     else:
                         self.exit_long = self.boll_mid
                         # print(f"我是多单，收盘价在两个中轨均值下方，以原中轨挂止损单:{self.exit_long},")
@@ -196,6 +198,10 @@ class AberrationStrategy(CtaTemplate):
                 else:
                     if self.am.close[-1] < (self.boll_mid + self.boll_mid_new[-1] / 2):
                         self.exit_short = bar.close_price
+
+                    elif bar.close_price > self.boll_mid:
+                        self.exit_short = bar.close_price
+
                     else:
                         self.exit_short = self.boll_mid
 

@@ -120,7 +120,7 @@ class AberrationStrategy(CtaTemplate):
         # 如果没有仓位，两条布林window一样
         if self.pos == 0:
             self.exit_long_nex = 0
-            self.exit_short_last = 0
+            self.exit_long_last = 0
             self.exit_short_nex = 0
             self.exit_short_last = 0
             self.boll_length_new = self.boll_length

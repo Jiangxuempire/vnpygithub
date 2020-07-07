@@ -72,6 +72,7 @@ class RsiAdaptStrategy(CtaTemplate):
 			"open_window",
 			"rsi_length",
 			"ema_length",
+			"kk_dev",
 			"trading_size",
 			"atr_length",
 	]

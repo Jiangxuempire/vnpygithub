@@ -31,14 +31,17 @@ class RsiAdaptStrategy(CtaTemplate):
 	"""
 	author = "yunya"
 
-	min_window = 55
-	open_window = 5
+	min_window = 45
+	open_window = 15
 	rsi_length = 23
-	ema_length = 180
+	kk_length = 80
+	kk_dev = 2.0
 	trading_size = 1
 	atr_length = 30
 
 	rsi_entry = 0
+	kk_up = 0
+	kk_down = 0
 	long_stop = 0
 	short_stop = 0
 	rsi_value = 0
@@ -110,14 +113,12 @@ class RsiAdaptStrategy(CtaTemplate):
 		""""""
 		super().__init__(cta_engine, strategy_name, vt_symbol, setting)
 
-		self.atr_stop_array = np.zeros(10)
-
 		self.bg_xminute = NewBarGenerator(
 			on_bar=self.on_bar,
 			window=self.min_window,
 			on_window_bar=self.on_xminute_bar
 		)
-		self.am_xminute = ArrayManager(self.ema_length + 100)
+		self.am_xminute = ArrayManager(self.kk_length + 100)
 
 		self.bg_open = NewBarGenerator(
 			on_bar=self.on_bar,
@@ -133,21 +134,17 @@ class RsiAdaptStrategy(CtaTemplate):
 		self.write_log("策略初始化。。")
 		self.load_bar(30)
 
-		self.put_event()
-
 	def on_start(self):
 		"""
 		Callback when strategy is started.
 		"""
 		self.write_log("策略启动。。")
-		self.put_event()
 
 	def on_stop(self):
 		"""
 		Callback when strategy is stopped.
 		"""
 		self.write_log("策略停止。。")
-		self.put_event()
 
 	def on_tick(self, tick: TickData):
 		"""
@@ -175,17 +172,46 @@ class RsiAdaptStrategy(CtaTemplate):
 		if not self.am_open.inited or not self.am_xminute.inited:
 			return
 
+		ema_mid_array = self.am_open.ema(self.kk_length,True)
+		atr = self.am_open.atr(self.kk_length,True)
+		kk_up_array = ema_mid_array + atr * self.kk_dev
+		kk_down_array = ema_mid_array - atr * self.kk_dev
+
+		self.ema_mid = ema_mid_array[-1]
+		self.kk_up = kk_up_array[-1]
+		self.kk_down = kk_down_array[-1]
+
+
+		self.current_close = self.am_open.close[-1]
+		self.last_close = self.am_open.close[-2]
+		self.front_close = self.am_open.close[-3]
+
 		if not self.pos:
+			self.exit_long_nex = 0
+			self.exit_long_last = 0
+			self.exit_short_nex = 0
+			self.exit_short_last = 0
+			self.ema_length_new = self.kk_length
+
+			self.atr_value = self.am_open.atr(self.atr_length)
 
 			if self.rsi_entry > 0:
-				self.buy(bar.close_price, self.trading_size, True)
-				self.write_log(f"下多单：{bar.datetime}, {bar.close_price}, {self.trading_size}")
+				self.buy(self.kk_up, self.trading_size, True)
+				self.write_log(f"下多单：{bar.datetime}, {self.kk_up}, {self.trading_size}")
 
 			elif self.rsi_entry < 0:
-				self.short(bar.close_price, self.trading_size, True)
-				self.write_log(f"下多单：{bar.datetime}, {bar.close_price}, {self.trading_size}")
+				self.short(self.kk_down, self.trading_size, True)
+				self.write_log(f"下多单：{bar.datetime}, {self.kk_down}, {self.trading_size}")
 
 		elif self.pos > 0:
+			close_long = self.current_close > self.last_close > self.front_close
+			if close_long:
+				self.ema_length_new -= 1
+				self.ema_length_new = max(self.ema_length_new, 5)
+
+			ema_mid_new = self.am_xminute.sma(self.ema_length_new, True)
+			self.current_ema_mid = ema_mid_new[-1]
+			self.last_ema_mid = ema_mid_new[-2]
 			# 仓位是long 时，如果价格下穿新布林中轨
 			con1 = bar.close_price < self.current_ema_mid
 			con2 = bar.close_price >= self.last_ema_mid
@@ -194,7 +220,7 @@ class RsiAdaptStrategy(CtaTemplate):
 
 				if self.exit_long_last == 0 or self.exit_long_nex > self.exit_long_last:
 					self.exit_long_last = self.exit_long_nex
-					self.ema_length_new = self.ema_length
+					self.ema_length_new = self.kk_length
 
 					# 下穿新均线，以原布林均线挂出停止单，避免快速下跌而无法止损
 					self.exit_long = self.ema_mid
@@ -216,6 +242,15 @@ class RsiAdaptStrategy(CtaTemplate):
 			self.sell(self.long_stop, abs(self.pos), True)
 
 		elif self.pos < 0:
+			close_short = self.current_close < self.last_close < self.front_close
+			if close_short:
+				self.ema_length_new -= 1
+				self.ema_length_new = max(self.ema_length_new, 5)
+
+			ema_mid_new = self.am_xminute.sma(self.ema_length_new, True)
+			self.current_ema_mid = ema_mid_new[-1]
+			self.last_ema_mid = ema_mid_new[-2]
+
 			# 仓位是short 时，如果价格上穿新布林中轨
 			con1 = bar.close_price > self.current_ema_mid
 			con2 = bar.close_price <= self.last_ema_mid
@@ -223,7 +258,7 @@ class RsiAdaptStrategy(CtaTemplate):
 				self.exit_short_nex = bar.close_price
 				if self.exit_short_last == 0 or self.exit_short_nex < self.exit_short_last:
 					self.exit_short_last = self.exit_short_nex
-					self.ema_length_new = self.ema_length
+					self.ema_length_new = self.kk_length
 
 					self.exit_short = self.ema_mid
 
@@ -284,40 +319,6 @@ class RsiAdaptStrategy(CtaTemplate):
 			self.rsi_entry = 1		
 		elif con3 and con4:
 			self.rsi_entry = -1
-		else:
-			self.rsi_entry = 0
-
-		self.ema_mid = self.am_xminute.sma(self.ema_length)
-
-		self.current_close = self.am_xminute.close[-1]
-		self.last_close = self.am_xminute.close[-2]
-		self.front_close = self.am_xminute.close[-3]
-
-		if self.pos == 0:
-			self.exit_long_nex = 0
-			self.exit_long_last = 0
-			self.exit_short_nex = 0
-			self.exit_short_last = 0
-			self.ema_length_new = self.ema_length
-
-		elif self.pos > 0:
-			# 上涨或下跌时，布林中轨均值减1
-			close_long = self.current_close > self.last_close > self.front_close
-			if close_long:
-				self.ema_length_new -= 1
-				self.ema_length_new = max(self.ema_length_new, 5)
-
-		elif self.pos < 0:
-			close_short = self.current_close < self.last_close < self.front_close
-			if close_short:
-				self.ema_length_new -= 1
-				self.ema_length_new = max(self.ema_length_new, 5)
-
-		ema_mid_new = self.am_xminute.sma(self.ema_length_new,True)
-		self.current_ema_mid = ema_mid_new[-1]
-		self.last_ema_mid = ema_mid_new[-2]
-
-		self.atr_value = self.am_xminute.atr(self.atr_length)
 
 		self.sync_data()
 

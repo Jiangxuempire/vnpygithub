@@ -101,7 +101,6 @@ class RsiAdaptStrategy(CtaTemplate):
 			"exit_long_last",
 			"exit_short_nex",
 			"exit_short_last",
-			"atr_value",
 	]
 
 	def __init__(

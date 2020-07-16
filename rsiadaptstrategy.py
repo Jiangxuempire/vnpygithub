@@ -118,7 +118,7 @@ class RsiAdaptStrategy(CtaTemplate):
 			window=self.min_window,
 			on_window_bar=self.on_xminute_bar
 		)
-		self.am_xminute = ArrayManager(self.kk_length + 100)
+		self.am_xminute = ArrayManager(self.kk_length * 2 + 10)
 
 		self.bg_open = NewBarGenerator(
 			on_bar=self.on_bar,
@@ -299,12 +299,13 @@ class RsiAdaptStrategy(CtaTemplate):
 		rsi_up_array = rsi_array + rsi_array * dev_max
 		rsi_dow_array = rsi_array - rsi_array * dev_max
 
-		self.rsi_value = self.am_xminute.rsi(self.rsi_length,True)
+		rsi_value_array = self.am_xminute.rsi(self.rsi_length,True)
 		self.rsi_up = rsi_up_array[-1]
 		self.rsi_dow = rsi_dow_array[-1]
 
-		current_rsi = self.rsi_value[-1]
-		last_rsi = self.rsi_value[-2]
+		self.rsi_value = rsi_value_array[-1]
+		current_rsi = rsi_value_array[-1]
+		last_rsi = rsi_value_array[-2]
 		current_rsi_up = rsi_up_array[-1]
 		last_rsi_up = rsi_up_array[-2]
 		current_rsi_down = rsi_dow_array[-1]

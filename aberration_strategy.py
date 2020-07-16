@@ -20,7 +20,9 @@ from vnpy.trader.object import Direction
 from  vnpy.app.cta_strategy.new_strategy import NewBarGenerator
 
 class AberrationStrategy(CtaTemplate):
-    """"""
+    """
+    目前使用中轨加速，可以考虑使用另外一根均线来加速，这样可以避免在开仓时被平。
+    """
     author = "yunya"
 
     open_window = 15
@@ -141,7 +143,7 @@ class AberrationStrategy(CtaTemplate):
 
             if close_long:
                 self.boll_length_new -= 1
-                self.boll_length_new = max(self.boll_length_new,20)
+                self.boll_length_new = max(self.boll_length_new,10)
 
             # 计算新的布林带
             self.boll_mid_new = am.sma(self.boll_length_new, True)
@@ -179,7 +181,7 @@ class AberrationStrategy(CtaTemplate):
 
             if close_short:
                 self.boll_length_new -= 1
-                self.boll_length_new = max(self.boll_length_new,20)
+                self.boll_length_new = max(self.boll_length_new,10)
 
             # 计算新的布林带
             self.boll_mid_new = am.sma(self.boll_length_new, True)

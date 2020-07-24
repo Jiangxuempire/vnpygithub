@@ -24,7 +24,7 @@ class DudlThrust_NewStrategy(CtaTemplate):
     rolling_period = 70
     upper_open = 0.5
     lower_open = 0.6
-    stop_multiplier = 1.8
+    stop_multiplier = 2.0
     dc_length = 30
     cci_length = 10
     cci_stop = 20

@@ -117,7 +117,6 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
 
         # Get current and last index
         current_sma = self.sma_array[-1]
-        last_sma = self.sma_array[-2]
         last_close = self.am.close[-2]
         currnet_boll_up = self.boll_up_array[-1]
         last_boll_up = self.boll_up_array[-2]
@@ -142,15 +141,6 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
         ):
             self.entry_crossover = -1
 
-        if(last_close <=last_sma
-            and bar.close_price > current_sma):
-            self.entry_ema = -1
-        elif (last_close >= last_sma
-            and bar.close_price < current_sma):
-            self.entry_ema = 1
-        else:
-            self.entry_ema = 0
-
         self.atr_value = am.atr(self.atr_window)
         self.exit_short, self.exit_long = self.am.donchian(self.dc_length)
 
@@ -165,8 +155,6 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
                 self.short(down_limit, self.fixed_size, True)
 
         elif self.pos > 0:
-            if self.entry_ema > 0:
-                self.sell((bar.close_price - 5), abs(self.pos))
 
             # 最高价回撤比例、固定止损、唐安奇下轨中的最大值为止损位
             self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
@@ -179,18 +167,15 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
             self.sell(self.long_stop, abs(self.pos), True)
 
         elif self.pos < 0:
-            if self.entry_ema < 0:
-                self.cover((bar.close_price + 5), abs(self.pos))
-            else:
-                # 最低价回撤比例、固定止损、唐安奇上轨中的最小值为止损位
-                self.intra_trade_high = bar.high_price
-                self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
+            # 最低价回撤比例、固定止损、唐安奇上轨中的最小值为止损位
+            self.intra_trade_high = bar.high_price
+            self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
 
-                short_stop_low = self.intra_trade_low + boll_width * self.sl_multiplier
-                short_low_trade = min(short_stop_low,self.short_stop_trade)
-                self.short_stop = min(short_low_trade,self.exit_short)
+            short_stop_low = self.intra_trade_low + boll_width * self.sl_multiplier
+            short_low_trade = min(short_stop_low,self.short_stop_trade)
+            self.short_stop = min(short_low_trade,self.exit_short)
 
-                self.cover(self.short_stop, abs(self.pos), True)
+            self.cover(self.short_stop, abs(self.pos), True)
 
         self.put_event()
 

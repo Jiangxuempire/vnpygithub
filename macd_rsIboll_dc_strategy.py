@@ -18,19 +18,7 @@ from vnpy.trader.constant import Interval
 
 class MacdRsibollDcStrategy(CtaTemplate):
     """
-    策略逻辑：
-    一、、过虑信号  （小时周期）
-    1、使用macd 快慢线交叉来判断多空大方向。
-    2、使用rsiboll来判断信号强弱
 
-    二、开单信号 （分钟周期）
-    1、使用布林上下轨作为开单条件
-
-    三、止损
-    1、使用固定止损
-    2、dc 移动止损
-    3、布林宽度比例
-    三个止损相结合的方式
     """
     author = "yunya"
 
@@ -47,7 +35,7 @@ class MacdRsibollDcStrategy(CtaTemplate):
     dc_length = 20
     atr_window = 30
     trailing_tax = 2.0
-    risk_level = 1
+    risk_level = 5000
 
     exit_down = 0
     exit_up = 0
@@ -107,14 +95,14 @@ class MacdRsibollDcStrategy(CtaTemplate):
             on_window_bar=self.on_xhour_bar,
             interval=Interval.HOUR
         )
-        self.am_hour = ArrayManager()
+        self.am_hour = ArrayManager(200)
 
         self.bg_xminute = NewBarGenerator(
             on_bar=self.on_bar,
             window=self.minute_window,
             on_window_bar=self.on_xminute_bar
         )
-        self.am_xminute = ArrayManager(self.boll_length + 100)
+        self.am_xminute = ArrayManager(200)
 
         self.bg_open = NewBarGenerator(
             on_bar=self.on_bar,
@@ -128,7 +116,7 @@ class MacdRsibollDcStrategy(CtaTemplate):
         Callback when strategy is inited.
         """
         self.write_log("策略初始化。。")
-        self.load_bar(10)
+        self.load_bar(30)
 
         self.put_event()
 

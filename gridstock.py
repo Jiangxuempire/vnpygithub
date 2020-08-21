@@ -7,7 +7,6 @@
 
 from math import ceil, floor
 from decimal import Decimal
-
 from vnpy.app.cta_strategy import (
     CtaTemplate,
     StopOrder,
@@ -135,6 +134,7 @@ class GridStockCtaStrategy(CtaTemplate):
         self.amplitude = 0
         self.tick_price = 0
         # self.active_orderids = set()
+        self.vt_symbol = []
 
     def on_init(self):
         """
@@ -343,10 +343,10 @@ class GridStockCtaStrategy(CtaTemplate):
     #         return False
     #     else:
     #         return True
-    #
+    
     # def cancel_all_orders(self):
     #     """"""
     #     for vt_orderid in self.active_orderids:
     #         self.cancel_order(vt_orderid)
-    #
+    
 

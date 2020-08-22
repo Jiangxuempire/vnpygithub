@@ -38,12 +38,12 @@ class GridStockCtaStrategy(CtaTemplate):
     open_window = 2
     xminute_window = 5
     xhour_window = 1
-    position_proportion = 1  # 每次加仓比例
+    position_proportion = 1.0  # 每次加仓比例
     grid_amount = 20      # 网格最大量
     grid_usdt_size = 10          # 首次使用多少USDT购买币
     grid_usdt_capital = 1000   # 网格最多使用的资金量USDT
-    grid_buy_price = 0.2      # 网格距离
-    grid_sell_price = 0.25
+    grid_buy_price = 2.0      # 网格距离
+    grid_sell_price = 2.0
     pay_up = 2            # 偏移pricetick
     buy_callback = 2      # 买入回调幅度
     sell_callback = 2     # 卖出回调幅度
@@ -70,9 +70,9 @@ class GridStockCtaStrategy(CtaTemplate):
     last_trade_low = 0
     amplitude = 0           # 振幅
     tick_price = 0
-    amplitude_inited = False  # 振幅标签
     time_stop = 0             # 计算得到的重新启动时间
-
+    amplitude_inited = False  # 振幅标签
+    first_time_inited = False   # 判断是否是首次启动，如果是首次启动，清空初始化数据
 
     parameters = [
             "open_window",
@@ -111,8 +111,9 @@ class GridStockCtaStrategy(CtaTemplate):
             "last_trade_low",
             "amplitude",
             "tick_price",
-            "amplitude_inited",
             "time_stop",
+            "amplitude_inited",
+            "first_time_inited",
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
@@ -134,7 +135,6 @@ class GridStockCtaStrategy(CtaTemplate):
         self.amplitude = 0
         self.tick_price = 0
         # self.active_orderids = set()
-        self.vt_symbol = []
 
     def on_init(self):
         """
@@ -148,6 +148,11 @@ class GridStockCtaStrategy(CtaTemplate):
         Callback when strategy is started.
         """
         self.write_log("策略启动")
+        if not self.first_time_inited:
+            self.grid_count = 0
+            self.current_volume = 0
+            self.cumulative_usdt_volume = 0
+            self.first_time_inited = True
 
     def on_stop(self):
         """
@@ -183,16 +188,14 @@ class GridStockCtaStrategy(CtaTemplate):
             return
 
         # 根据网格次数加仓 , 根据USDT量和价格计算出可购买的币数量
-        if self.position_proportion > 0 or self.grid_count > 0:
+        if self.position_proportion > 0 and self.grid_count > 0:
             self.grid_usdt_volume = self.grid_usdt_size * (1 + (self.position_proportion / 100) * self.grid_count)
         else:
             self.grid_usdt_volume = self.grid_usdt_size
-
         self.current_volume = self.grid_usdt_volume / bar.close_price
-
         self.write_log(f"使用 {self.grid_usdt_volume} 枚USDT,可购买 {self.current_volume} 枚币")
-
         self.tick_price = self.get_pricetick()
+
         if not self.pos:
             """
             1、如果空仓，以当前价格买入一份做为底仓
@@ -273,7 +276,7 @@ class GridStockCtaStrategy(CtaTemplate):
         # 更新图形界面
         self.put_event()
 
-    def on_mintue_bar(self, bar:BarData):
+    def on_mintue_bar(self, bar: BarData):
         """
         :return:
         """
@@ -292,7 +295,7 @@ class GridStockCtaStrategy(CtaTemplate):
                            f"振幅为：{self.amplitude},超过设置值，策略进入休眠，"
                            f"休眠到：{self.time_stop.strftime('%Y-%m-%d %H:%M:%S')}时重新启动策略")
 
-    def on_xhour_bar(self, bar:BarData):
+    def on_xhour_bar(self, bar: BarData):
         """
         :return:
         """
@@ -326,8 +329,8 @@ class GridStockCtaStrategy(CtaTemplate):
             self.price_change = trade.price
 
         # 计算当前网格买入价格和卖出价格
-        self.buy_benchmark = self.price_change * (1 - self.grid_buy_price)
-        self.sell_benchmark = self.price_change * (1 + self.grid_sell_price)
+        self.buy_benchmark = self.price_change * (1 - self.grid_buy_price / 100)
+        self.sell_benchmark = self.price_change * (1 + self.grid_sell_price / 100)
 
         self.sync_data()
 

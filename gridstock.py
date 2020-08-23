@@ -263,7 +263,7 @@ class GridStockCtaStrategy(CtaTemplate):
                         self.pos = self.cumulative_currency_volume
                         short_pos = self.pos
 
-                    vt_orderid = self.cover(self.sell_price, abs(short_pos))
+                    vt_orderid = self.sell(self.sell_price, abs(short_pos))
                     self.vt_orderids.extend(vt_orderid)
 
         # 更新图形界面

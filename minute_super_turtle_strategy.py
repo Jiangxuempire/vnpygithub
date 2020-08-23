@@ -40,10 +40,21 @@ class MinuteSuperTurtleStrategy(CtaTemplate):
     long_stop = 0
     short_stop = 0
 
-    parameters = ["entry_window", "exit_window", "atr_window", "risk_level"]
+    parameters = [
+                "open_window",
+                "entry_window",
+                "exit_window",
+                "atr_window",
+                "risk_level",
+                "cci_window"]
     variables = [
-        "entry_up", "entry_down", "exit_up",
-        "exit_down", "trading_size", "atr_value"
+                "entry_up",
+                "entry_down",
+                "exit_up",
+                "exit_down",
+                "trading_size",
+                "atr_value",
+                "cci_value"
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):

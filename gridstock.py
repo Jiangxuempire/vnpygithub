@@ -4,9 +4,8 @@
 # 开发时间 : 2020/8/12 16:14
 # 文件名称 ：gridstock.py
 # 开发工具 ： PyCharm
+from decimal import Decimal
 
-
-from vnpy.trader.utility import round_to
 from vnpy.app.cta_strategy import (
     CtaTemplate,
     StopOrder,
@@ -39,9 +38,10 @@ class GridStockCtaStrategy(CtaTemplate):
     open_window = 2
     xminute_window = 5
     xhour_window = 1
+    min_volume = 0.001          # 最小下单量
     position_proportion = 1.0  # 每次加仓比例
     grid_amount = 20      # 网格最大量
-    grid_usdt_size = 5          # 首次使用多少USDT购买币
+    grid_usdt_size = 20          # 首次使用多少USDT购买币
     grid_usdt_capital = 200   # 网格最多使用的资金量USDT
     grid_buy_price = 1.0      # 网格距离
     grid_sell_price = 1.0
@@ -72,6 +72,7 @@ class GridStockCtaStrategy(CtaTemplate):
     time_stop = 0             # 计算得到的重新启动时间
     buy_fixed_size = 0
     sell_fixed_size = 0
+    len_tick_decimal = 0        # 获取当前币种盘口最小下单量
     amplitude_inited = False  # 振幅标签
     first_time_inited = False   # 判断是否是首次启动，如果是首次启动，清空初始化数据
 
@@ -79,6 +80,7 @@ class GridStockCtaStrategy(CtaTemplate):
             "open_window",
             "xminute_window",
             "xhour_window",
+            "min_volume",
             "position_proportion",
             "grid_amount",
             "grid_usdt_size",
@@ -143,6 +145,7 @@ class GridStockCtaStrategy(CtaTemplate):
         Callback when strategy is inited.
         """
         self.write_log("策略初始化")
+        self.len_tick_decimal = len(str(self.min_volume).split(".")[1])
         self.load_bar(10)
 
     def on_start(self):
@@ -195,7 +198,6 @@ class GridStockCtaStrategy(CtaTemplate):
         else:
             self.grid_usdt_volume = self.grid_usdt_size
         self.current_volume = self.grid_usdt_volume / bar.close_price
-        self.tick_price = self.get_pricetick()
 
         if not self.pos:
             """
@@ -204,8 +206,14 @@ class GridStockCtaStrategy(CtaTemplate):
             """
             self.buy_price = bar.close_price - self.tick_price * self.pay_up
             # 取四舍五入
-            self.current_volume = round_to(self.current_volume, 3)
-            
+            self.current_volume = float(format(self.current_volume, f".{self.len_tick_decimal}f"))
+            USDT = bar.close_price * self.min_volume
+
+            if self.current_volume < self.min_volume:
+                msg = f"当前下单小于：{self.vt_symbol} 最小下单最，请重新设置最小下单量！最下小量为：{self.min_volume},需要约：{USDT}枚USDT"
+                self.write_log(msg)
+                return
+
             vt_orderid = self.buy(self.buy_price, self.current_volume)
             # 把挂单信息添加到列表末尾
             self.vt_orderids.extend(vt_orderid)
@@ -238,8 +246,7 @@ class GridStockCtaStrategy(CtaTemplate):
                     else:
                         self.buy_price = self.buy_benchmark
                     # 取四舍五入
-                    self.current_volume = round_to(self.current_volume, 3)
-
+                    self.current_volume = float(format(self.current_volume, f".{self.len_tick_decimal}f"))
                     vt_orderid = self.buy(self.buy_price, self.current_volume)
                     self.vt_orderids.extend(vt_orderid)
 

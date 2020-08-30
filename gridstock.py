@@ -4,9 +4,8 @@
 # 开发时间 : 2020/8/12 16:14
 # 文件名称 ：gridstock.py
 # 开发工具 ： PyCharm
-
-from math import ceil, floor
 from decimal import Decimal
+
 from vnpy.app.cta_strategy import (
     CtaTemplate,
     StopOrder,
@@ -18,7 +17,7 @@ from vnpy.app.cta_strategy import (
     ArrayManager,
 )
 from vnpy.app.cta_strategy.base import EngineType
-from vnpy.trader.constant import Direction, Interval, Status
+from vnpy.trader.constant import Direction, Interval, Status, ExchangeMaterial
 import datetime
 
 class GridStockCtaStrategy(CtaTemplate):
@@ -32,17 +31,15 @@ class GridStockCtaStrategy(CtaTemplate):
 	6、网格步进 ：（ 网格上限 - 网格下限 ） / 网格数量
 	7、仓位单元 ： 网格总限量 / 网格数量
 	8、网格启动、停止开关：振幅超过百分比例，网格暂时停止，等待8小时后重新启动
-
     """
     author = "yunya"
 
     open_window = 2
     xminute_window = 5
     xhour_window = 1
-    service_charge = 0.15        # 手续费，根据交易所实际手续费设置
     position_proportion = 1.0  # 每次加仓比例
     grid_amount = 20      # 网格最大量
-    grid_usdt_size = 5          # 首次使用多少USDT购买币
+    grid_usdt_size = 20          # 首次使用多少USDT购买币
     grid_usdt_capital = 200   # 网格最多使用的资金量USDT
     grid_buy_price = 1.0      # 网格距离
     grid_sell_price = 1.0
@@ -53,8 +50,6 @@ class GridStockCtaStrategy(CtaTemplate):
     stop_time = 8         # 策略暂停时间
 
     price_change = 0      # 网格基准线（每次成交价）
-    current_grid = 0
-    max_target = 0         # 当前网格最大最
     current_volume = 0   # 当前下单币的数量
     target_pos = 0
     buy_benchmark = 0
@@ -63,7 +58,6 @@ class GridStockCtaStrategy(CtaTemplate):
     sell_price = 0          # 平仓成交价
     grid_usdt_volume = 0
     cumulative_usdt_volume = 0   # 累计使用金额
-    cumulative_currency_volume = 0      # 累计购买币量
     grid_count = 0          # 网格次数
     intra_trade_high = 0    # 最高价
     trade_high = 0
@@ -72,14 +66,17 @@ class GridStockCtaStrategy(CtaTemplate):
     amplitude = 0           # 振幅
     tick_price = 0
     time_stop = 0             # 计算得到的重新启动时间
+    buy_fixed_size = 0
+    sell_fixed_size = 0
+    len_tick_decimal = 0        # 获取当前币种盘口最小下单量
     amplitude_inited = False  # 振幅标签
     first_time_inited = False   # 判断是否是首次启动，如果是首次启动，清空初始化数据
+    min_volume = 0
 
     parameters = [
             "open_window",
             "xminute_window",
             "xhour_window",
-            "service_charge",
             "position_proportion",
             "grid_amount",
             "grid_usdt_size",
@@ -95,8 +92,6 @@ class GridStockCtaStrategy(CtaTemplate):
 
     variables = [
             "price_change",
-            "current_grid",
-            "max_target",
             "current_volume",
             "buy_benchmark",
             "sell_benchmark",
@@ -104,23 +99,22 @@ class GridStockCtaStrategy(CtaTemplate):
             "sell_price",
             "grid_usdt_volume",
             "cumulative_usdt_volume",
-            "cumulative_currency_volume",
             "grid_count",
             "intra_trade_high",
             "trade_high",
             "intra_trade_low",
             "trade_low",
             "amplitude",
-            "tick_price",
-            "time_stop",
             "amplitude_inited",
             "first_time_inited",
+            "min_volume"
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
         """"""
-        super().__init__(cta_engine, strategy_name, vt_symbol, setting)
+        super().__init__(cta_engine, strategy_name, vt_symbol, setting,)
 
+        self.exchangematerial = ExchangeMaterial.OKEX_MATERIAL
         self.bg_open = BarGenerator(self.on_bar,self.open_window,self.on_open_bar)
         self.am_open = ArrayManager()
 
@@ -130,22 +124,27 @@ class GridStockCtaStrategy(CtaTemplate):
         self.bg_xhour = BarGenerator(self.on_bar, self.xhour_window, self.on_xhour_bar, Interval.HOUR)
         self.am_xhour = ArrayManager()
 
+        self.ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED])
         # 计算每次使用资金量
         self.cumulative_usdt_volume = 0
-        self.cumulative_currency_volume = 0
         self.target_pos = 0
         self.grid_usdt_volume = 0
         self.amplitude = 0
         self.tick_price = 0
         self.engine_type = self.get_engine_type()  #测试还是实盘
         self.vt_orderids = []
+        self.buy_vt_orderid = 0
+        self.sell_vt_orderid = 0
 
     def on_init(self):
         """
         Callback when strategy is inited.
         """
         self.write_log("策略初始化")
-        self.load_bar(10)
+        contract = self.on_get_contract()
+        self.min_volume = contract.min_volume
+        self.len_tick_decimal = len(str(self.min_volume).split(".")[1])
+        self.load_bar(5)
 
     def on_start(self):
         """
@@ -156,7 +155,6 @@ class GridStockCtaStrategy(CtaTemplate):
             self.grid_count = 0
             self.current_volume = 0
             self.cumulative_usdt_volume = 0
-            self.cumulative_currency_volume = 0
             self.first_time_inited = True
 
     def on_stop(self):
@@ -184,7 +182,25 @@ class GridStockCtaStrategy(CtaTemplate):
         if not self.am_open.inited:
             return
 
-        self.cancel_all()
+        if self.buy_vt_orderid in self.vt_orderids:
+            self.write_log(f"开多订单号：{self.buy_vt_orderid}" + "\n")
+
+            get_order_orderid = self.on_get_order(self.buy_vt_orderid)
+            self.write_log(f"查询挂单：{get_order_orderid}" + "\n")
+
+            if get_order_orderid.status in self.ACTIVE_STATUSES:
+                self.cancel_order(self.buy_vt_orderid)
+                self.buy_vt_orderid = 0
+
+        elif self.sell_vt_orderid in self.vt_orderids:
+            self.write_log(f"平多订单号：{self.sell_vt_orderid}" + "\n")
+
+            get_order_orderid = self.on_get_order(self.sell_vt_orderid)
+            self.write_log(f"查询挂单：{get_order_orderid}" + "\n")
+
+            if get_order_orderid.status in self.ACTIVE_STATUSES:
+                self.cancel_order(self.sell_vt_orderid)
+                self.sell_vt_orderid = 0
 
         # 判断 休眠时间
         if self.amplitude_inited:
@@ -198,23 +214,30 @@ class GridStockCtaStrategy(CtaTemplate):
         else:
             self.grid_usdt_volume = self.grid_usdt_size
         self.current_volume = self.grid_usdt_volume / bar.close_price
-        self.tick_price = self.get_pricetick()
 
-        if not self.pos:
+        if not self.pos or self.pos < self.min_volume:
             """
             1、如果空仓，以当前价格买入一份做为底仓
             2、总网格次数减一
             """
-            buy_price = bar.close_price - self.tick_price * self.pay_up
-            vt_orderid = self.buy(buy_price, self.current_volume)
+            self.buy_price = bar.close_price - self.tick_price * self.pay_up
+            # 取四舍五入
+            self.current_volume = float(format(self.current_volume, f".{self.len_tick_decimal}f"))
+            USDT = bar.close_price * self.min_volume
+
+            if self.current_volume < self.min_volume:
+                msg = f"当前下单小于：{self.vt_symbol} 最小下单最，请重新设置最小下单量！最下小量为：{self.min_volume},需要约：{USDT}枚USDT"
+                self.write_log(msg)
+                return
+
+            self.buy_vt_orderid = self.buy(self.buy_price, self.current_volume)
             # 把挂单信息添加到列表末尾
-            self.vt_orderids.extend(vt_orderid)
+            self.vt_orderids.extend(self.buy_vt_orderid)
 
             self.intra_trade_high = bar.high_price
             self.intra_trade_low = bar.low_price
 
             # 清空
-            self.cumulative_currency_volume = 0
             self.cumulative_usdt_volume = 0
             self.grid_count = 0
             self.current_volume = 0
@@ -238,9 +261,10 @@ class GridStockCtaStrategy(CtaTemplate):
                         self.buy_price = self.trade_low
                     else:
                         self.buy_price = self.buy_benchmark
-
-                    vt_orderid = self.buy(self.buy_price, self.current_volume)
-                    self.vt_orderids.extend(vt_orderid)
+                    # 取四舍五入
+                    self.current_volume = float(format(self.current_volume, f".{self.len_tick_decimal}f"))
+                    self.buy_vt_orderid = self.buy(self.buy_price, self.current_volume)
+                    self.vt_orderids.extend(self.buy_vt_orderid)
 
             elif bar.close_price > self.sell_benchmark:
                 if self.pos > 0:
@@ -257,14 +281,13 @@ class GridStockCtaStrategy(CtaTemplate):
                         self.sell_price = self.sell_benchmark
 
                     # 判断 如果理论（不含手续费）self.pos 比交易所成交反馈回来的量小时，使用交易所反馈回来的量下单，同时把理论值设置为零
-                    if self.pos > self.cumulative_currency_volume * 1.01:
-                        short_pos = self.current_volume
+                    if self.pos > self.current_volume * 1.2:
+                        self.sell_fixed_size = self.current_volume
                     else:
-                        self.pos = self.cumulative_currency_volume
-                        short_pos = self.pos
+                        self.sell_fixed_size = self.pos
 
-                    vt_orderid = self.cover(self.sell_price, abs(short_pos))
-                    self.vt_orderids.extend(vt_orderid)
+                    self.sell_vt_orderid = self.sell(self.sell_price, abs(self.sell_fixed_size))
+                    self.vt_orderids.extend(self.sell_vt_orderid)
 
         # 更新图形界面
         self.put_event()
@@ -306,25 +329,26 @@ class GridStockCtaStrategy(CtaTemplate):
         if order.vt_orderid in self.vt_orderids:
             if order.status == Status.ALLTRADED:
                 if order.direction == Direction.LONG:
-                    self.target_pos = order.traded
-                    self.grid_count += 1
-                    self.cumulative_usdt_volume += self.grid_usdt_volume
-                    self.cumulative_currency_volume += self.target_pos * (1 - self.service_charge / 100)
-                    msg = f"开仓，成交量为：{self.target_pos}"
-                    self.write_log(msg)
-                    self.target_pos = 0
+                    if self.buy_vt_orderid == order.vt_orderid:
+                        self.target_pos = order.traded
+                        self.grid_count += 1
+                        self.cumulative_usdt_volume += self.grid_usdt_volume
+                        # 买入时，实际得到币量为总买量减手续费
+                        msg = f"开仓，成交量为：{self.target_pos}"
+                        self.write_log(msg)
+                        self.target_pos = 0
+                        self.buy_vt_orderid = 0
                 else:
-                    self.target_pos = -order.traded
-                    self.grid_count -= 1
-                    self.cumulative_usdt_volume += self.grid_usdt_volume
-                    self.cumulative_currency_volume += self.target_pos * (1 - self.service_charge / 100)
-                    msg = f"平仓，成交量为：{self.target_pos}"
-                    self.write_log(msg)
-                    self.target_pos = 0
-
+                    if self.sell_vt_orderid == order.vt_orderid:
+                        self.target_pos = -order.traded
+                        self.grid_count -= 1
+                        self.cumulative_usdt_volume += self.grid_usdt_volume
+                        msg = f"平仓，成交量为：{self.target_pos}"
+                        self.write_log(msg)
+                        self.target_pos = 0
+                        self.sell_vt_orderid = 0
             if not order.is_active():
                 self.vt_orderids.remove(order.vt_orderid)
-
         self.sync_data()
 
     def on_trade(self, trade: TradeData):
@@ -352,4 +376,25 @@ class GridStockCtaStrategy(CtaTemplate):
         Callback of stop order update.
         """
         pass
+
+    def on_get_contract(self):
+        """
+        :return:
+        """
+        return self.cta_engine.main_engine.get_contract(self.vt_symbol)
+
+    def on_get_order(self,vt_orderid):
+        """
+        查询挂单数据
+        :return:
+        """
+        return self.cta_engine.main_engine.get_order(vt_orderid)
+
+    def on_get_trade(self,vt_orderid):
+        """
+        查询成交数据
+        :return:
+        """
+        return self.cta_engine.main_engine.get_trade(vt_orderid)
+
 

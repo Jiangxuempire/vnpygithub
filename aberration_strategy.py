@@ -88,14 +88,12 @@ class AberrationStrategy(CtaTemplate):
         Callback when strategy is started.
         """
         self.write_log("策略启动")
-        self.put_event()
 
     def on_stop(self):
         """
         Callback when strategy is stopped.
         """
         self.write_log("策略停止")
-        self.put_event()
 
     def on_tick(self, tick: TickData):
         """
@@ -119,7 +117,7 @@ class AberrationStrategy(CtaTemplate):
             return
 
         # 计算原布林带
-        self.boll_up,self.boll_down = self.am.boll(self.boll_length,self.boll_dev)
+        self.boll_up, self.boll_down = self.am.boll(self.boll_length, self.boll_dev)
         self.boll_mid = am.sma(self.boll_length)
         self.cci_value = am.cci(self.cci_length)
 
@@ -143,7 +141,7 @@ class AberrationStrategy(CtaTemplate):
 
             if close_long:
                 self.boll_length_new -= 1
-                self.boll_length_new = max(self.boll_length_new,10)
+                self.boll_length_new = max(self.boll_length_new, 10)
 
             # 计算新的布林带
             self.boll_mid_new = am.sma(self.boll_length_new, True)
@@ -162,7 +160,7 @@ class AberrationStrategy(CtaTemplate):
                     # print(f"我是多单，exitlast:{self.exit_short_last},重置布林中轨参数，止损挂{self.exit_long}：")
                 else:
                     # 收盘价在两条均线平均价上方，以当前收盘价挂出限价单
-                    if self.am.close[-1] > ((self.boll_mid + self.boll_mid_new[-1]) / 2 ):
+                    if self.am.close[-1] > ((self.boll_mid + self.boll_mid_new[-1]) / 2):
                         self.exit_long = bar.close_price
                         # print(f"我是多单，收盘价在两个中轨均值上方，以收盘价挂止损单:{self.exit_long}")
                     elif bar.close_price < self.boll_mid:
@@ -181,7 +179,7 @@ class AberrationStrategy(CtaTemplate):
 
             if close_short:
                 self.boll_length_new -= 1
-                self.boll_length_new = max(self.boll_length_new,10)
+                self.boll_length_new = max(self.boll_length_new, 10)
 
             # 计算新的布林带
             self.boll_mid_new = am.sma(self.boll_length_new, True)

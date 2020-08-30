@@ -2,7 +2,7 @@
 # 开发团队 ：yunya
 # 开发人员 ：yunya
 # 开发时间 : 2020/8/12 16:14
-# 文件名称 ：gridstock.py
+# 文件名称 ：gridstock 增加撤单是否成功的判断.py
 # 开发工具 ： PyCharm
 
 from math import ceil, floor

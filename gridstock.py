@@ -361,7 +361,7 @@ class GridStockCtaStrategy(CtaTemplate):
             self.write_log(msg)
         else:
             self.price_change = trade.price
-            msg = f"开仓，成交价格为：{self.price_change}"
+            msg = f"平仓，成交价格为：{self.price_change}"
             self.write_log(msg)
         # 计算当前网格买入价格和卖出价格
         self.buy_benchmark = self.price_change * (1 - self.grid_buy_price / 100)

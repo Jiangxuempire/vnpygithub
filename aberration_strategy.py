@@ -30,6 +30,10 @@ class AberrationStrategy(CtaTemplate):
     boll_dev = 2.0
     cci_length = 6
     cci_exit = 10.0
+    atr_window = 16
+    atr_multiple = 2.0
+    long_trailing = 4.0
+    short_trailing = 4.0
     fixed_size = 1
 
     boll_up = 0
@@ -44,7 +48,10 @@ class AberrationStrategy(CtaTemplate):
     exit_long_last = 0
     exit_short_nex = 0
     exit_short_last = 0
-
+    long_stop_trade = 0
+    short_stop_trade = 0
+    trade_price_long = 0
+    trade_price_short = 0
 
     parameters = [
                 "open_window",
@@ -52,6 +59,10 @@ class AberrationStrategy(CtaTemplate):
                 "boll_dev",
                 "cci_length",
                 "cci_exit",
+                "atr_window",
+                "atr_multiple",
+                "long_trailing",
+                "short_trailing",
                 "fixed_size",
                 ]
 
@@ -67,6 +78,10 @@ class AberrationStrategy(CtaTemplate):
                 "exit_long_last",
                 "exit_short_nex",
                 "exit_short_last",
+                "long_stop_trade",
+                "short_stop_trade",
+                "trade_price_long",
+                "trade_price_short",
                 ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
@@ -129,6 +144,8 @@ class AberrationStrategy(CtaTemplate):
             self.exit_short_last = 0
             self.boll_length_new = self.boll_length
 
+            self.atr_value = am.atr(self.atr_window)
+
             if self.cci_value > self.cci_exit:
                 self.buy(self.boll_up, self.fixed_size, True)
 
@@ -171,7 +188,11 @@ class AberrationStrategy(CtaTemplate):
             else:
                 self.exit_long = self.boll_mid
                 # print(f"我是多单，收盘价在新中轨上方，以原中轨挂止损单:{self.exit_long}")
+            if bar.close_price < self.trade_price_long * (1 - self.long_trailing / 100):
+                exit_long_price = self.trade_price_long * (1 - (self.long_trailing + 1) / 100)
+                self.exit_long = max(exit_long_price, self.exit_long)
 
+            self.exit_long = max(self.exit_long, self.long_stop_trade)
             self.sell(self.exit_long, abs(self.pos), True)
 
         elif self.pos < 0:
@@ -201,12 +222,16 @@ class AberrationStrategy(CtaTemplate):
 
                     elif bar.close_price > self.boll_mid:
                         self.exit_short = bar.close_price
-
                     else:
                         self.exit_short = self.boll_mid
-
             else:
                 self.exit_short = self.boll_mid
+            #
+            if bar.close_price > self.trade_price_short * (1 + self.short_trailing / 100):
+                exit_short_price = self.trade_price_short * (1 + (self.short_trailing + 1) / 100)
+                self.exit_short = min(exit_short_price, self.exit_short)
+
+            self.exit_short = min(self.exit_short, self.short_stop_trade)
 
             self.cover(self.exit_short, abs(self.pos), True)
 
@@ -224,12 +249,12 @@ class AberrationStrategy(CtaTemplate):
         """
         Callback of new trade data update.
         """
-        self.put_event()
-        pass
-    def on_stop_order(self, stop_order: StopOrder):
-        """
-        Callback of stop order update.
-        """
-        self.put_event()
-        pass
+        if trade.direction == Direction.LONG:
+            self.trade_price_long = trade.price  # 成交最高价
+            self.long_stop_trade = self.trade_price_long - self.atr_multiple * self.atr_value
+        else:
+            self.trade_price_short = trade.price
+            self.short_stop_trade = self.trade_price_short + self.atr_multiple * self.atr_value
 
+        self.sync_data()
+        self.put_event()

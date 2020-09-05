@@ -8,40 +8,63 @@ from vnpy.app.cta_strategy import (
     BarGenerator,
     ArrayManager,
 )
-from  vnpy.app.cta_strategy.new_strategy import NewBarGenerator
+from vnpy.app.cta_strategy.new_strategy import NewBarGenerator
+from vnpy.trader.constant import Direction
 
-class Boll_Std_vix(CtaTemplate):
+
+class BollStdvix(CtaTemplate):
     """"""
     author = "yunya"
 
     win_open = 15
     boll_window = 80
     atr_window = 30
-    sl_multiplier = 10.0
+    rsi_window = 16
+    rsi_entry = 19
+    atr_multiple = 2.1
     fixed_size = 1
 
+    rsi_value = 0
+    rsi_long = 0
+    rsi_short = 0
+
+    entry_rsi = 0
     entry_crossover = 0
     atr_value = 0
     intra_trade_high = 0
     intra_trade_low = 0
+    long_entry = 0
+    short_entry = 0
     long_stop = 0
     short_stop = 0
+    current_sma = 0
+    sma_array = 0
+    boll_up_array = 0
+    boll_down_array = 0
+    trade_price_long = 0
+    long_stop_trade = 0
+    trade_price_short = 0
+    short_stop_trade = 0
 
     parameters = [
-                "win_open",
-                "boll_window",
-                "sl_multiplier",
-                "fixed_size",
-                ]
+            "win_open",
+            "boll_window",
+            "atr_window",
+            "rsi_window",
+            "rsi_entry",
+            "atr_multiple",
+            "fixed_size",
+    ]
 
     variables = [
-                "entry_crossover",
-                "atr_value",
-                "intra_trade_high",
-                "intra_trade_low",
-                "long_stop",
-                "short_stop"
-                ]
+            "entry_crossover",
+            "entry_rsi",
+            "atr_value",
+            "long_entry",
+            "short_entry",
+            "long_stop",
+            "short_stop"
+    ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
         """"""
@@ -55,6 +78,8 @@ class Boll_Std_vix(CtaTemplate):
         Callback when strategy is inited.
         """
         self.write_log("策略初始化")
+        self.rsi_long = 50 + self.rsi_entry
+        self.rsi_short = 50 - self.rsi_entry
         self.load_bar(10)
 
     def on_start(self):
@@ -93,6 +118,7 @@ class Boll_Std_vix(CtaTemplate):
             return
 
         # Calculate array  计算数组
+        self.rsi_value = am.rsi(self.rsi_window, True)
         self.sma_array = am.sma(self.boll_window, True)
         std_array = am.std(self.boll_window, True)
         dev = abs(self.am.close[:-1] - self.sma_array[:-1]) / std_array[:-1]
@@ -101,48 +127,50 @@ class Boll_Std_vix(CtaTemplate):
         self.boll_down_array = self.sma_array - std_array * dev_max
 
         # Get current and last index
-        current_sma = self.sma_array[-1]
-        last_sma = self.sma_array[-2]
+        last_rsi_value = self.rsi_value[-2]
+        current_rsi_value = self.rsi_value[-1]
+
+        self.current_sma = self.sma_array[-1]
         last_close = self.am.close[-2]
-        currnet_boll_up = self.boll_up_array[-1]
+        self.current_boll_up = self.boll_up_array[-1]
         last_boll_up = self.boll_up_array[-2]
-        current_boll_down = self.boll_down_array[-1]
+        self.current_boll_down = self.boll_down_array[-1]
         last_boll_down = self.boll_down_array[-2]
 
-
         # Get crossover
-        if (bar.close_price > currnet_boll_up and last_close <= last_boll_up):
+        if current_rsi_value > self.rsi_short > last_rsi_value:
+            self.entry_rsi = 1
+        elif current_rsi_value < self.rsi_long < last_rsi_value:
+            self.entry_rsi = -1
+        else:
+            self.entry_rsi = 0
+
+        if bar.close_price > self.current_boll_up and last_close <= last_boll_up:
             self.entry_crossover = 1
 
-        elif(bar.close_price < current_boll_down and last_close >=last_boll_down):
+        elif bar.close_price < self.current_boll_down and last_close >= last_boll_down:
             self.entry_crossover = -1
-
-        self.atr_value = am.atr(self.atr_window)
+        else:
+            self.entry_crossover = 0
 
         if not self.pos:
-            self.intra_trade_high = bar.high_price
-            self.intra_trade_low = bar.low_price
-
+            self.atr_value = am.atr(self.atr_window)
+            # 进出场逻辑，可以优化
             if self.entry_crossover > 0:
-                self.buy(bar.close_price, self.fixed_size, True)
+                self.long_entry = max(self.current_boll_up,bar.close_price)
+                self.buy(self.long_entry, self.fixed_size)
 
             elif self.entry_crossover < 0:
-                self.short(bar.close_price, self.fixed_size, True)
+                self.short_entry = min(self.current_boll_down,bar.close_price)
+                self.short(self.short_entry, self.fixed_size)
 
         elif self.pos > 0:
 
-            self.intra_trade_high = max(self.intra_trade_high, bar.high_price)
-            self.intra_trade_low = bar.low_price
-
-            self.long_stop = self.intra_trade_high - self.atr_value * self.sl_multiplier
+            self.long_stop = max(self.long_stop_trade, self.current_sma)
             self.sell(self.long_stop, abs(self.pos), True)
 
         elif self.pos < 0:
-
-            self.intra_trade_high = bar.high_price
-            self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
-
-            self.short_stop = self.intra_trade_low + self.atr_value * self.sl_multiplier
+            self.short_stop = min(self.short_stop_trade, self.current_sma)
             self.cover(self.short_stop, abs(self.pos), True)
 
         self.put_event()
@@ -158,6 +186,15 @@ class Boll_Std_vix(CtaTemplate):
         """
         Callback of new trade data update.
         """
+        if trade.direction == Direction.LONG:
+            self.trade_price_long = trade.price  # 成交最高价
+            self.long_stop_trade = self.trade_price_long - self.atr_multiple * self.atr_value
+
+        else:
+            self.trade_price_short = trade.price
+            self.short_stop_trade = self.trade_price_short + self.atr_multiple * self.atr_value
+
+        self.sync_data()
         self.put_event()
 
     def on_stop_order(self, stop_order: StopOrder):
@@ -166,5 +203,3 @@ class Boll_Std_vix(CtaTemplate):
         """
         self.put_event()
         pass
-
-

@@ -1,0 +1,10 @@
+"回测数据基于BINANCE交易所的ethusdt的1m分钟数据,开始时间为：2017-01-01 00:00:00,结束时间为：2020-02-01 00:00:00，'
+'交易手续费设置为：0.001,滑点为：0.01,合约乘数为：1,盘口一跳为：0.01,合约方向：False(注：F 正向，T 反向)。'
+'策略名为：AberrationStrategy,回测指标为：total_net_pnl。'
+'回测时间为：2020-09-04 ，算法类型：DNA
+"
+参数,total_net_pnl
+"{'open_window': 20, 'boll_length': 265, 'boll_dev': 2.7000000000000006, 'cci_window': 10, 'cci_exit': 7, 'atr_window': 11, 'atr_multiple': 3.6000000000000014}",1754.9626400000002
+"{'open_window': 20, 'boll_length': 265, 'boll_dev': 2.7000000000000006, 'cci_window': 10, 'cci_exit': 9, 'atr_window': 11, 'atr_multiple': 3.6000000000000014}",1754.9626400000002
+"{'open_window': 20, 'boll_length': 265, 'boll_dev': 2.7000000000000006, 'cci_window': 20, 'cci_exit': 7, 'atr_window': 11, 'atr_multiple': 3.6000000000000014}",1754.9626400000002
+"{'open_window': 20, 'boll_length': 265, 'boll_dev': 2.7000000000000006, 'cci_window': 20, 'cci_exit': 9, 'atr_window': 11, 'atr_multiple': 3.6000000000000014}",1754.9626400000002

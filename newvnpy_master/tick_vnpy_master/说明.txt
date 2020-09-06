@@ -1,0 +1,15 @@
+https://mp.weixin.qq.com/s?__biz=MzI1MTQ2Njc5OQ==&mid=2247484266&idx=1&sn=59cf7350cf2d2274ade593108617c08e&chksm=e9f3c62ade844f3cd6f71ab38c97d3b70fd1d319e96eb4e7c6e748ce6144310b74b6046d0d83&mpshare=1&scene=1&srcid=0825m8cHjRhfZfJKz2Bs1SS3&sharer_sharetime=1598347744863&sharer_shareid=feca7dc43f7ba7515ce1f799593e6ddc&key=6def13d9b1a9ecc5003c4638b1d25390f12a043c42840fabd64232370228eac22d5fd29a2f9c3a8fbb758fc2cdc833de83731ca1671b61805e67de2ff7142e4c07823f9a2e49aaa41f941b7bf1b88c7f14cccd6cfc822353b959cd922c5cff91164260e27286aca0cc60e85e1cfe6be93b8b5201e8582eab253392212ebce3a2&ascene=1&uin=MzQ4ODIyNjU%3D&devicetype=Windows+10+x64&version=62090538&lang=zh_CN&exportkey=A%2Bc8wV%2BMUn%2Bt8uRyyXc7gbk%3D&pass_ticket=GteaZd1jj%2BHbGt03FSzZtWNAHc%2BzMKidFv3CMpmIfao%3D
+
+vn.py社区精选21 - Tick级的委托精细化管理 
+高庆峰修改的：
+
+
+修改boject文件时注意不要把原有的    datetime: datetime = None删掉
+
+修改engine时别忘记from collections import defaultdict,OrderedDict
+
+
+修改策略时别忘记from vnpy.trader.constant import Offset
+
+
+

@@ -142,7 +142,7 @@ class GridStockCtaStrategy(CtaTemplate):
         contract = self.cta_engine.main_engine.get_contract(self.vt_symbol)
         self.min_volume = contract.min_volume
         self.len_tick_decimal = len(str(self.min_volume).split(".")[1])
-        self.load_bar(5)
+        self.load_bar(2)
 
     def on_start(self):
         """

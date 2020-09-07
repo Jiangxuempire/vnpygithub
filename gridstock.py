@@ -24,14 +24,14 @@ import datetime
 class GridStockCtaStrategy(CtaTemplate):
     """
     策略逻辑：
-    1、网格数量： 21  ，网格总限量资金： 3000
-	2、网格操作区间： 10%
-	3、网格跟踪指标 ： 首次成交价格
-	4、网格上限： 网格跟踪指标 * （1 + 网格操作区间）
-	5、网格下限： 网格跟踪指标 * （ 1 - 网格操作区间）
-	6、网格步进 ：（ 网格上限 - 网格下限 ） / 网格数量
-	7、仓位单元 ： 网格总限量 / 网格数量
-	8、网格启动、停止开关：振幅超过百分比例，网格暂时停止，等待8小时后重新启动
+        1、网格数量： 21  ，网格总限量资金： 3000
+        2、网格操作区间： 10%
+        3、网格跟踪指标 ： 首次成交价格
+        4、网格上限： 网格跟踪指标 * （1 + 网格操作区间）
+        5、网格下限： 网格跟踪指标 * （ 1 - 网格操作区间）
+        6、网格步进 ：（ 网格上限 - 网格下限 ） / 网格数量
+        7、仓位单元 ： 网格总限量 / 网格数量
+        8、网格启动、停止开关：振幅超过百分比例，网格暂时停止，等待8小时后重新启动
     """
     author = "yunya"
 
@@ -47,6 +47,7 @@ class GridStockCtaStrategy(CtaTemplate):
     pay_up = 2            # 偏移pricetick
     buy_callback = 0.5      # 买入回调幅度
     sell_callback = 0.5    # 卖出回调幅度
+    sleep_switch = False   # 睡眠开关，默认关
     grid_amplitude = 5.0    # 振幅超过比例停止策略8小时
     stop_time = 8         # 策略暂停时间
 
@@ -154,6 +155,7 @@ class GridStockCtaStrategy(CtaTemplate):
             self.current_volume = 0
             self.cumulative_usdt_volume = 0
             self.first_time_inited = True
+        self.amplitude_inited = False
 
     def on_stop(self):
         """
@@ -282,16 +284,17 @@ class GridStockCtaStrategy(CtaTemplate):
         if not self.am_minute.inited:
             return
         # 计算振幅
-        self.amplitude = (bar.high_price - bar.low_price) / bar.high_price
+        if self.sleep_switch:
+            self.amplitude = (bar.high_price - bar.low_price) / bar.high_price
 
-        # 如果振幅超过指定值，策略撤掉所有挂单，并且进入休眠状态
-        if self.amplitude > self.grid_amplitude / 100:
-            self.amplitude_inited = True
-            self.time_stop = bar.datetime + datetime.timedelta(hours=self.stop_time)
-            time_stop = self.time_stop.replace(tzinfo=UTC_TZ)
-            self.write_log(f"当前市场波动较大，"
-                           f"振幅为：{self.amplitude},超过设置值，策略进入休眠，"
-                           f"休眠到：{time_stop.strftime('%Y-%m-%d %H:%M:%S')}时重新启动策略")
+            # 如果振幅超过指定值，策略撤掉所有挂单，并且进入休眠状态
+            if self.amplitude > self.grid_amplitude / 100:
+                self.amplitude_inited = True
+                self.time_stop = bar.datetime + datetime.timedelta(hours=self.stop_time)
+                time_stop = self.time_stop.replace(tzinfo=UTC_TZ)
+                self.write_log(f"当前市场波动较大，"
+                               f"振幅为：{self.amplitude},超过设置值，策略进入休眠，"
+                               f"休眠到：{time_stop.strftime('%Y-%m-%d %H:%M:%S')}时重新启动策略")
 
     def on_xhour_bar(self, bar: BarData):
         """

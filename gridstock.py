@@ -88,6 +88,7 @@ class GridStockCtaStrategy(CtaTemplate):
             "pay_up",
             "buy_callback",
             "sell_callback",
+            "sleep_switch",
             "grid_amplitude",
             "stop_time",
     ]
@@ -143,7 +144,7 @@ class GridStockCtaStrategy(CtaTemplate):
         contract = self.cta_engine.main_engine.get_contract(self.vt_symbol)
         self.min_volume = contract.min_volume
         self.len_tick_decimal = len(str(self.min_volume).split(".")[1])
-        self.load_bar(2)
+        self.load_bar(1)
 
     def on_start(self):
         """
@@ -183,8 +184,6 @@ class GridStockCtaStrategy(CtaTemplate):
             return
 
         self.cancel_all()
-        # contract = self.cta_engine.main_engine.get_order("vt_orderid")
-        # contract = self.cta_engine.main_engine.get_trade("vt_orderid")
         # 判断 休眠时间
         if self.amplitude_inited:
             if bar.datetime > self.time_stop:
@@ -324,7 +323,7 @@ class GridStockCtaStrategy(CtaTemplate):
                 else:
                     self.target_pos = -order.traded
                     self.grid_count -= 1
-                    self.cumulative_usdt_volume += self.grid_usdt_volume
+                    self.cumulative_usdt_volume -= self.grid_usdt_volume
                     msg = f"平仓，成交量为：{self.target_pos}"
                     self.write_log(msg)
                     self.target_pos = 0

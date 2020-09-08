@@ -342,7 +342,7 @@ class GridStockCtaStrategy(CtaTemplate):
                     if self.sell_vt_orderid == order.vt_orderid:
                         self.target_pos = -order.traded
                         self.grid_count -= 1
-                        self.cumulative_usdt_volume += self.grid_usdt_volume
+                        self.cumulative_usdt_volume -= self.grid_usdt_volume
                         msg = f"平仓，成交量为：{self.target_pos}"
                         self.write_log(msg)
                         self.target_pos = 0

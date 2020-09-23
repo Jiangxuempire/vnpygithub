@@ -28,12 +28,6 @@ class RsiDcVixStrategy(CtaTemplate):
         3、rsi 上穿上轨，并且 rsi 大于 50 ，做多
         3、rsi 下穿下轨，并且 rsi 小于 50 ，做空
 
-    二、 开平仓位逻辑
-        1、如果没有仓位
-        2、
-        3、移动止损 挂停止单 
-
-
     """
 
     author = "yunya"
@@ -42,13 +36,10 @@ class RsiDcVixStrategy(CtaTemplate):
     rsi_window = 50
     exit_window = 50
     atr_window = 16
-    atr_multiplier = 15.0
+    atr_multiplier = 10.0
     pos_trailing = 5.0
     fixed_size = 1
 
-    rsi_up = 0
-    rsi_down = 0
-    rsi_value = 0
     exit_up = 0
     exit_down = 0
     atr_value = 0
@@ -60,6 +51,12 @@ class RsiDcVixStrategy(CtaTemplate):
     short_trade_stop = 0
     intra_trade_high = 0
     intra_trade_low = 0
+    rsi_value_current = 0
+    rsi_value_last = 0
+    rsi_up_current = 0
+    rsi_up_last = 0
+    rsi_down_current = 0
+    rsi_down_last = 0
 
     parameters = [
             "open_window",
@@ -71,9 +68,6 @@ class RsiDcVixStrategy(CtaTemplate):
             "fixed_size",
     ]
     variables = [
-            "rsi_up",
-            "rsi_down",
-            "rsi_value",
             "exit_up",
             "exit_down",
             "atr_value",
@@ -85,13 +79,25 @@ class RsiDcVixStrategy(CtaTemplate):
             "short_trade_stop",
             "intra_trade_high",
             "intra_trade_low",
+            "rsi_value_current",
+            "rsi_value_last",
+            "rsi_up_current",
+            "rsi_up_last",
+            "rsi_down_current",
+            "rsi_down_last",
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
         """"""
         super().__init__(cta_engine, strategy_name, vt_symbol, setting)
         self.bg = NewBarGenerator(self.on_bar, self.open_window, self.on_15min_bar)
-        self.am = ArrayManager(self.rsi_window * 3)
+        self.am = ArrayManager(self.rsi_window * 2)
+
+        self.count: int = 0
+        self.size: int = 4
+        self.rsi_inited: bool = False
+        self.rsi_up_array: np.ndarray = np.zeros(self.size)
+        self.rsi_down_array: np.ndarray = np.zeros(self.size)
 
     def on_init(self):
         """
@@ -138,12 +144,36 @@ class RsiDcVixStrategy(CtaTemplate):
             return
 
         # 计算 dev_max
-        rsi_array = talib.RSI(self.am.close[:-1], self.rsi_window)
+        rsi_array = talib.RSI(self.am.close, self.rsi_window)
 
-        self.rsi_up = rsi_array[-self.rsi_window:].max()
-        self.rsi_down = rsi_array[-self.rsi_window:].min()
+        if not self.rsi_inited and self.count <= self.size:
+            self.count += 1
+            self.rsi_inited = True
 
-        self.rsi_value = am.rsi(self.rsi_window)
+        # rsi 上下轨容器
+        self.rsi_up_array[:-1] = self.rsi_up_array[1:]
+        self.rsi_down_array[:-1] = self.rsi_down_array[1:]
+
+        rsi_up = rsi_array[-self.rsi_window:].max()
+        rsi_down = rsi_array[-self.rsi_window:].min()
+
+        self.rsi_up_array[-1] = rsi_up
+        self.rsi_down_array[-1] = rsi_down
+
+        if not self.rsi_inited:
+            return
+
+        rsi_value_array = am.rsi(self.rsi_window, True)
+
+        self.rsi_value_current = rsi_value_array[-1]
+        self.rsi_value_last = rsi_value_array[-2]
+
+        # 取前一个值
+        self.rsi_up_current = self.rsi_up_array[-2]
+        self.rsi_up_last = self.rsi_up_array[-3]
+        self.rsi_down_current = self.rsi_down_array[-2]
+        self.rsi_down_last = self.rsi_down_array[-3]
+
         self.exit_up, self.exit_down = self.am.donchian(self.exit_window)
         self.atr_value = am.atr(self.atr_window)
 
@@ -152,10 +182,10 @@ class RsiDcVixStrategy(CtaTemplate):
             self.intra_trade_high = bar.high_price
             self.intra_trade_low = bar.low_price
 
-            if self.rsi_value > self.rsi_up:
+            if self.rsi_value_current > self.rsi_up_current and self.rsi_value_last <= self.rsi_up_last:
                 self.buy(bar.close_price + 5, self.fixed_size)
 
-            elif self.rsi_value < self.rsi_down:
+            elif self.rsi_value_current < self.rsi_down_current and self.rsi_value_last >= self.rsi_down_last:
                 self.short(bar.close_price - 5, self.fixed_size)
 
         # 有多仓

@@ -98,8 +98,6 @@ class GridStockCtaStrategy(CtaTemplate):
             "current_volume",
             "buy_benchmark",
             "sell_benchmark",
-            "buy_price",
-            "sell_price",
             "grid_usdt_volume",
             "cumulative_usdt_volume",
             "grid_count",

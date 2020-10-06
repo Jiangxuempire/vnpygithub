@@ -16,7 +16,8 @@ pd.set_option('precision', 6)  # 浮点数的精度
 # print(project_dir)
 # csv_dir=project_dir+'ETH/'      #拼接成保存CSV文件的路径
 
-csv_dir = r"E:\历史数据\刑不行网站下载\crypto-binance-candle_pro\binance\spot_1m"
+csv_dir = r"G:\历史数据\crypto-binance-candle_pro\binance\spot_1m"
+csv_files = r"G:\历史数据\crypto-binance-candle_pro\binance\vnpy_spot_1m"
 
 csv_files_path = []
 
@@ -84,6 +85,6 @@ if __name__ == '__main__':
             all_df.sort_values(by=['Datetime'], ascending=1, inplace=True)
 
             all_df.set_index('Datetime', inplace=True)
-            file = r"E:\历史数据\刑不行网站下载\crypto-binance-candle_pro\binance\data" + "/" + str(name) + '_1min.csv'
+            file = csv_files + "/" + str(name) + '_1min.csv'
             all_df.to_csv(file)
             print(f"{name},保存成功")

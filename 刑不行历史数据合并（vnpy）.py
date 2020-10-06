@@ -86,4 +86,4 @@ if __name__ == '__main__':
             all_df.set_index('Datetime', inplace=True)
             file = r"E:\历史数据\刑不行网站下载\crypto-binance-candle_pro\binance\data" + "/" + str(name) + '_1min.csv'
             all_df.to_csv(file)
-            print("保存成功")
+            print(f"{name},保存成功")

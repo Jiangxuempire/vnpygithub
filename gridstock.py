@@ -21,6 +21,7 @@ from vnpy.gateway.alpaca.alpaca_gateway import UTC_TZ
 from vnpy.trader.constant import Direction, Interval, Status, ExchangeMaterial
 import datetime
 
+
 class GridStockCtaStrategy(CtaTemplate):
     """
     策略逻辑：
@@ -39,87 +40,85 @@ class GridStockCtaStrategy(CtaTemplate):
     xminute_window = 5
     xhour_window = 1
     position_proportion = 1.0  # 每次加仓比例
-    grid_amount = 20      # 网格最大量
-    grid_usdt_size = 20          # 首次使用多少USDT购买币
-    grid_usdt_capital = 200   # 网格最多使用的资金量USDT
-    grid_buy_price = 1.0      # 网格距离
+    grid_amount = 20  # 网格最大量
+    grid_usdt_size = 20  # 首次使用多少USDT购买币
+    grid_usdt_capital = 200  # 网格最多使用的资金量USDT
+    grid_buy_price = 1.0  # 网格距离
     grid_sell_price = 1.0
-    pay_up = 2            # 偏移pricetick
-    buy_callback = 0.5      # 买入回调幅度
-    sell_callback = 0.5    # 卖出回调幅度
-    sleep_switch = False   # 睡眠开关，默认关
-    grid_amplitude = 5.0    # 振幅超过比例停止策略8小时
-    stop_time = 8         # 策略暂停时间
+    pay_up = 2  # 偏移pricetick
+    buy_callback = 0.5  # 买入回调幅度
+    sell_callback = 0.5  # 卖出回调幅度
+    sleep_switch = False  # 睡眠开关，默认关
+    grid_amplitude = 5.0  # 振幅超过比例停止策略8小时
+    stop_time = 8  # 策略暂停时间
 
-    price_change = 0      # 网格基准线（每次成交价）
-    current_volume = 0   # 当前下单币的数量
+    price_change = 0  # 网格基准线（每次成交价）
+    current_volume = 0  # 当前下单币的数量
     target_pos = 0
     buy_benchmark = 0
     sell_benchmark = 0
-    buy_price = 0           # 买入成交价
-    sell_price = 0          # 平仓成交价
+    buy_price = 0  # 买入成交价
+    sell_price = 0  # 平仓成交价
     grid_usdt_volume = 0
-    cumulative_usdt_volume = 0   # 累计使用金额
-    grid_count = 0          # 网格次数
-    intra_trade_high = 0    # 最高价
+    cumulative_usdt_volume = 0  # 累计使用金额
+    grid_count = 0  # 网格次数
+    intra_trade_high = 0  # 最高价
     trade_high = 0
-    intra_trade_low = 0     # 最低价
+    intra_trade_low = 0  # 最低价
     trade_low = 0
-    amplitude = 0           # 振幅
+    amplitude = 0  # 振幅
     tick_price = 0
-    time_stop = 0             # 计算得到的重新启动时间
+    time_stop = 0  # 计算得到的重新启动时间
     buy_fixed_size = 0
     sell_fixed_size = 0
-    len_tick_decimal = 0        # 获取当前币种盘口最小下单量
+    len_tick_decimal = 0  # 获取当前币种盘口最小下单量
     amplitude_inited = False  # 振幅标签
-    first_time_inited = False   # 判断是否是首次启动，如果是首次启动，清空初始化数据
+    first_time_inited = False  # 判断是否是首次启动，如果是首次启动，清空初始化数据
     min_volume = 0
+    buy_tick = 0
+    short_tick = 0
 
     parameters = [
-            "open_window",
-            "xminute_window",
-            "xhour_window",
-            "position_proportion",
-            "grid_amount",
-            "grid_usdt_size",
-            "grid_usdt_capital",
-            "grid_buy_price",
-            "grid_sell_price",
-            "pay_up",
-            "buy_callback",
-            "sell_callback",
-            "sleep_switch",
-            "grid_amplitude",
-            "stop_time",
+        "open_window",
+        "xminute_window",
+        "xhour_window",
+        "position_proportion",
+        "grid_amount",
+        "grid_usdt_size",
+        "grid_usdt_capital",
+        "grid_buy_price",
+        "grid_sell_price",
+        "pay_up",
+        "buy_callback",
+        "sell_callback",
+        "sleep_switch",
+        "grid_amplitude",
+        "stop_time",
     ]
 
     variables = [
-            "price_change",
-            "current_volume",
-            "buy_benchmark",
-            "sell_benchmark",
-            "grid_usdt_volume",
-            "cumulative_usdt_volume",
-            "grid_count",
-            "intra_trade_high",
-            "trade_high",
-            "intra_trade_low",
-            "trade_low",
-            "amplitude",
-            "amplitude_inited",
-            "first_time_inited",
-            "min_volume"
+        "price_change",
+        "current_volume",
+        "buy_benchmark",
+        "sell_benchmark",
+        "grid_usdt_volume",
+        "cumulative_usdt_volume",
+        "grid_count",
+        "amplitude",
+        "amplitude_inited",
+        "first_time_inited",
+        "min_volume"
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
         """"""
-        super().__init__(cta_engine, strategy_name, vt_symbol, setting,)
+        super().__init__(cta_engine, strategy_name, vt_symbol, setting, )
 
         self.exchangematerial = ExchangeMaterial.OKEX_MATERIAL
-        self.bg_open = BarGenerator(self.on_bar,self.open_window,self.on_open_bar)
+        self.bg_open = BarGenerator(self.on_bar, self.open_window, self.on_open_bar)
         self.am_open = ArrayManager()
 
-        self.bg_minute = BarGenerator(self.on_bar,self.xminute_window,self.on_mintue_bar)
+        self.bg_minute = BarGenerator(self.on_bar, self.xminute_window, self.on_mintue_bar)
         self.am_minute = ArrayManager()
 
         self.bg_xhour = BarGenerator(self.on_bar, self.xhour_window, self.on_xhour_bar, Interval.HOUR)
@@ -131,7 +130,7 @@ class GridStockCtaStrategy(CtaTemplate):
         self.grid_usdt_volume = 0
         self.amplitude = 0
         self.tick_price = 0
-        self.engine_type = self.get_engine_type()  #测试还是实盘
+        self.engine_type = self.get_engine_type()  # 测试还是实盘
         self.vt_orderids = []
 
     def on_init(self):
@@ -167,6 +166,8 @@ class GridStockCtaStrategy(CtaTemplate):
         Callback of new tick data update.
         """
         self.bg_open.update_tick(tick)
+        self.buy_tick = tick.bid_price_1
+        self.short_tick = tick.ask_price_1
 
     def on_bar(self, bar: BarData):
         """"""

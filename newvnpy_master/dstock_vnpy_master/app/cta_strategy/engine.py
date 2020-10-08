@@ -300,59 +300,6 @@ class CtaEngine(BaseEngine):
                     )
                     self.put_stop_order_event(stop_order)
 
-    def send_miker_order(
-            self,
-            strategy: CtaTemplate,
-            contract: ContractData,
-            direction: Direction,
-            offset: Offset,
-            price: float,
-            volume: float,
-            lock: bool,
-            order_type: OrderType,
-            type: OrderType = OrderType.LIMIT
-    ):
-        """
-        Send a new order to server.
-        """
-        # Create request and send order.
-        original_req = OrderRequest(
-            symbol=contract.symbol,
-            exchange=contract.exchange,
-            direction=direction,
-            offset=offset,
-            type=type,
-            order_type=order_type,
-            price=price,
-            volume=volume,
-        )
-
-        # Convert with offset converter
-        req_list = self.offset_converter.convert_order_request(original_req, lock)
-
-        # Send Orders
-        vt_orderids = []
-
-        for req in req_list:
-            req.reference = strategy.strategy_name  # Add strategy name as order reference
-
-            vt_orderid = self.main_engine.send_order(
-                req, contract.gateway_name)
-
-            # Check if sending order successful
-            if not vt_orderid:
-                continue
-
-            vt_orderids.append(vt_orderid)
-
-            self.offset_converter.update_order_request(req, vt_orderid)
-
-            # Save relationship between orderid and strategy.
-            self.orderid_strategy_map[vt_orderid] = strategy
-            self.strategy_orderid_map[strategy.strategy_name].add(vt_orderid)
-
-        return vt_orderids
-
     def send_server_order(
             self,
             strategy: CtaTemplate,
@@ -363,6 +310,7 @@ class CtaEngine(BaseEngine):
             volume: float,
             type: OrderType,
             lock: bool,
+            order_type: OrderType
     ):
         """
         Send a new order to server.
@@ -375,7 +323,8 @@ class CtaEngine(BaseEngine):
             offset=offset,
             type=type,
             price=price,
-            volume=volume
+            volume=volume,
+            order_type=order_type
         )
 
         # Convert with offset converter
@@ -413,6 +362,7 @@ class CtaEngine(BaseEngine):
             price: float,
             volume: float,
             lock: bool,
+            order_type: OrderType
 
     ):
         """
@@ -427,6 +377,7 @@ class CtaEngine(BaseEngine):
             volume,
             OrderType.LIMIT,
             lock,
+            order_type
         )
 
     def send_server_stop_order(
@@ -437,7 +388,8 @@ class CtaEngine(BaseEngine):
             offset: Offset,
             price: float,
             volume: float,
-            lock: bool
+            lock: bool,
+            order_type: OrderType
     ):
         """
         Send a stop order to server.
@@ -453,7 +405,8 @@ class CtaEngine(BaseEngine):
             price,
             volume,
             OrderType.STOP,
-            lock
+            lock,
+            order_type
         )
 
     def send_local_stop_order(
@@ -463,7 +416,8 @@ class CtaEngine(BaseEngine):
             offset: Offset,
             price: float,
             volume: float,
-            lock: bool
+            lock: bool,
+            order_type:OrderType
     ):
         """
         Create a new local stop order.
@@ -535,7 +489,7 @@ class CtaEngine(BaseEngine):
             volume: float,
             stop: bool,
             lock: bool,
-            order_type: OrderType
+            order_type: OrderType = OrderType.LIMIT
     ):
         """
         """
@@ -556,15 +510,12 @@ class CtaEngine(BaseEngine):
 
         if stop:
             if contract.stop_supported:
-                return self.send_server_stop_order(strategy, contract, direction, offset, price, volume, lock)
+                return self.send_server_stop_order(strategy, contract, direction, offset, price, volume, lock, order_type)
             else:
-                return self.send_local_stop_order(strategy, direction, offset, price, volume, lock)
+                return self.send_local_stop_order(strategy, direction, offset, price, volume, lock, order_type)
         else:
             # 根据订单类型分别传入不同参数
-            if order_type == OrderType.MakerPostOnly:
-                return self.send_miker_order(strategy, contract, direction, offset, price, volume, lock, order_type)
-            else:
-                return self.send_limit_order(strategy, contract, direction, offset, price, volume, lock)
+            return self.send_limit_order(strategy, contract, direction, offset, price, volume, lock, order_type)
 
     def cancel_order(self, strategy: CtaTemplate, vt_orderid: str):
         """

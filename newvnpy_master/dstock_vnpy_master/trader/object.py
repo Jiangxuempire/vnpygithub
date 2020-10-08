@@ -5,6 +5,7 @@ Basic data structure used for general trading function in VN Trader.
 from dataclasses import dataclass
 from datetime import datetime
 from logging import INFO
+
 from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType
 
 ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
@@ -108,9 +109,8 @@ class OrderData(BaseData):
     symbol: str
     exchange: Exchange
     orderid: str
-
     type: OrderType = OrderType.LIMIT
-    order_type: OrderType = OrderType.MakerPostOnly
+    order_type: OrderType = OrderType.LIMIT
     direction: Direction = None
     offset: Offset = Offset.NONE
     price: float = 0
@@ -144,10 +144,57 @@ class OrderData(BaseData):
 
 
 @dataclass
+class OrderDataTick(BaseData):
+    """
+    Order data contains information for tracking lastest status
+    of a specific order. 委托订单信息
+    """
+
+    symbol: str
+    exchange: Exchange
+    orderid: str
+    type: OrderType = OrderType.LIMIT
+    direction: Direction = Direction.NET  # 净持仓
+    offset: Offset = Offset.NONE
+    price: float = 0
+    volume: float = 0
+    traded: float = 0
+    status: Status = Status.SUBMITTING  # 提交交中
+    datetime: datetime = None
+
+    cancel_time: str = ""
+
+    def __post_init__(self):
+        """"""
+        self.vt_symbol = f"{self.symbol}_{self.exchange.value}/{self.gateway_name}"
+        self.vt_orderid = f"{self.gateway_name}_{self.orderid}"
+        # 未成交量
+        self.untrade = self.volume - self.traded
+
+    def is_active(self) -> bool:
+        """
+        Check if the order is active.
+        """
+        if self.status in ACTIVE_STATUSES:
+            return True
+        else:
+            return False
+
+    def create_cancel_request(self) -> "CancelRequest":
+        """
+        Create cancel request object from order.
+        """
+        req = CancelRequest(
+            orderid=self.orderid, symbol=self.symbol, exchange=self.exchange
+        )
+        return req
+
+
+@dataclass
 class TradeData(BaseData):
     """
     Trade data contains information of a fill of an order. One order
-    can have several trade fills.
+    can have several trade fills. 成交订单信息，一个委托订单可以分为多个成交订单信息
     """
 
     symbol: str
@@ -155,11 +202,10 @@ class TradeData(BaseData):
     orderid: str
     tradeid: str
     direction: Direction = None
-
     offset: Offset = Offset.NONE
     price: float = 0
     volume: float = 0
-    fee: float = 0      #增加手续费
+    fee: float = 0
     datetime: datetime = None
 
     def __post_init__(self):
@@ -195,7 +241,7 @@ class PositionData(BaseData):
 class AccountData(BaseData):
     """
     Account data contains information about balance, frozen and
-    available.
+    available. 账号信息，余额、冻结等相关
     """
 
     accountid: str
@@ -212,7 +258,7 @@ class AccountData(BaseData):
 @dataclass
 class LogData(BaseData):
     """
-    Log data is used for recording log messages on GUI or in log files.
+    Log data is used for recording log messages on GUI or in log files. 日志
     """
 
     msg: str
@@ -226,7 +272,7 @@ class LogData(BaseData):
 @dataclass
 class ContractData(BaseData):
     """
-    Contract data contains basic information about each contract traded.
+    Contract data contains basic information about each contract traded.  合约信息
     """
 
     symbol: str
@@ -236,17 +282,17 @@ class ContractData(BaseData):
     size: int
     pricetick: float
 
-    min_volume: float = 1           # minimum trading volume of the contract
-    stop_supported: bool = False    # whether server supports stop order
-    net_position: bool = False      # whether gateway uses net position volume
-    history_data: bool = False      # whether gateway provides bar history data
+    min_volume: float = 1  # minimum trading volume of the contract  最小交易量
+    stop_supported: bool = False  # whether server supports stop order  是否支持停止单
+    net_position: bool = False  # whether gateway uses net position volume
+    history_data: bool = False  # whether gateway provides bar history data
 
     option_strike: float = 0
-    option_underlying: str = ""     # vt_symbol of underlying contract
+    option_underlying: str = ""  # vt_symbol of underlying contract
     option_type: OptionType = None
     option_expiry: datetime = None
     option_portfolio: str = ""
-    option_index: str = ""          # for identifying options with same strike price
+    option_index: str = ""  # for identifying options with same strike price
 
     def __post_init__(self):
         """"""
@@ -256,7 +302,7 @@ class ContractData(BaseData):
 @dataclass
 class SubscribeRequest:
     """
-    Request sending to specific gateway for subscribing tick data update.
+    Request sending to specific gateway for subscribing tick data update. 订阅行情
     """
 
     symbol: str
@@ -270,15 +316,15 @@ class SubscribeRequest:
 @dataclass
 class OrderRequest:
     """
-    Request sending to specific gateway for creating a new order.
+    Request sending to specific gateway for creating a new order. 创建新订单
     """
 
     symbol: str
     exchange: Exchange
     direction: Direction
     type: OrderType
-    order_type: OrderType
     volume: float
+    order_type: OrderType = OrderType.LIMIT
     price: float = 0
     offset: Offset = Offset.NONE
     reference: str = ""
@@ -293,19 +339,18 @@ class OrderRequest:
         Create order data from request.
         """
         if self.exchange.value == Exchange.OKEX:
-            if self.order_type == OrderType.MakerPostOnly:
-                self.order = OrderData(
-                    symbol=self.symbol,
-                    exchange=self.exchange,
-                    orderid=orderid,
-                    type=self.type,
-                    order_type=self.order_type,
-                    direction=self.direction,
-                    offset=self.offset,
-                    price=self.price,
-                    volume=self.volume,
-                    gateway_name=gateway_name,
-                )
+            self.order = OrderData(
+                symbol=self.symbol,
+                exchange=self.exchange,
+                orderid=orderid,
+                type=self.type,
+                order_type=self.order_type,
+                direction=self.direction,
+                offset=self.offset,
+                price=self.price,
+                volume=self.volume,
+                gateway_name=gateway_name,
+            )
         else:
             self.order = OrderData(
                 symbol=self.symbol,
@@ -324,7 +369,7 @@ class OrderRequest:
 @dataclass
 class CancelRequest:
     """
-    Request sending to specific gateway for canceling an existing order.
+    Request sending to specific gateway for canceling an existing order.  取消订单
     """
 
     orderid: str
@@ -339,7 +384,7 @@ class CancelRequest:
 @dataclass
 class HistoryRequest:
     """
-    Request sending to specific gateway for querying history data.
+    Request sending to specific gateway for querying history data. 查询历史订单
     """
 
     symbol: str

@@ -192,17 +192,10 @@ class CtaTemplate(ABC):
         Send a new order.
         """
         if self.trading:
-            # 判断策略是否是maker
-            if order_type.value == OrderType.MakerPostOnly:
-                vt_orderids = self.cta_engine.send_order(
-                    self, direction, offset, price, volume, stop, lock
-                    , order_type)
-                return vt_orderids
-            else:
-                vt_orderids = self.cta_engine.send_order(
-                    self, direction, offset, price, volume, stop, lock
-                    )
-                return vt_orderids
+            vt_orderids = self.cta_engine.send_order(
+                self, direction, offset, price, volume, stop, lock
+                , order_type)
+            return vt_orderids
         else:
             return []
 

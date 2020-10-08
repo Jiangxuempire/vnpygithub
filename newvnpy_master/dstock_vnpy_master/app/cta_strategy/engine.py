@@ -375,7 +375,7 @@ class CtaEngine(BaseEngine):
             offset=offset,
             type=type,
             price=price,
-            volume=volume,
+            volume=volume
         )
 
         # Convert with offset converter
@@ -560,10 +560,11 @@ class CtaEngine(BaseEngine):
             else:
                 return self.send_local_stop_order(strategy, direction, offset, price, volume, lock)
         else:
-            if order_type == OrderType.LIMIT:
-                return self.send_limit_order(strategy, contract, direction, offset, price, volume, lock)
-            else:
+            # 根据订单类型分别传入不同参数
+            if order_type == OrderType.MakerPostOnly:
                 return self.send_miker_order(strategy, contract, direction, offset, price, volume, lock, order_type)
+            else:
+                return self.send_limit_order(strategy, contract, direction, offset, price, volume, lock)
 
     def cancel_order(self, strategy: CtaTemplate, vt_orderid: str):
         """

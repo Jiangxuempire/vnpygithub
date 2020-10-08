@@ -3,7 +3,7 @@ from abc import ABC
 from copy import copy
 from typing import Any, Callable
 
-from vnpy.trader.constant import Interval, Direction, Offset, ExchangeMaterial
+from vnpy.trader.constant import Interval, Direction, Offset, ExchangeMaterial, OrderType
 from vnpy.trader.object import BarData, TickData, OrderData, TradeData
 from vnpy.trader.utility import virtual
 
@@ -18,11 +18,11 @@ class CtaTemplate(ABC):
     variables = []
 
     def __init__(
-        self,
-        cta_engine: Any,
-        strategy_name: str,
-        vt_symbol: str,
-        setting: dict,
+            self,
+            cta_engine: Any,
+            strategy_name: str,
+            vt_symbol: str,
+            setting: dict,
     ):
         """"""
         self.cta_engine = cta_engine
@@ -32,7 +32,7 @@ class CtaTemplate(ABC):
         self.inited = False
         self.trading = False
         self.pos = 0
-        self.exchangematerial = ExchangeMaterial.NONE # 增加判断现货接口逻辑
+        self.exchangematerial = ExchangeMaterial.NONE  # 增加判断现货接口逻辑
         self.len_tick_decimal = 1
 
         # Copy a new variables list here to avoid duplicate insert when multiple
@@ -150,38 +150,43 @@ class CtaTemplate(ABC):
         """
         pass
 
-    def buy(self, price: float, volume: float, stop: bool = False, lock: bool = False):
+    def buy(self, price: float, volume: float, stop: bool = False, lock: bool = False,
+            order_type: OrderType = OrderType.LIMIT):
         """
-        Send buy order to open a long position.
+        Send buy order to open a long position.  order_type = 1 为okex 交易所 高级限价 miker 单
         """
-        return self.send_order(Direction.LONG, Offset.OPEN, price, volume, stop, lock)
+        return self.send_order(Direction.LONG, Offset.OPEN, price, volume, stop, lock, order_type)
 
-    def sell(self, price: float, volume: float, stop: bool = False, lock: bool = False):
+    def sell(self, price: float, volume: float, stop: bool = False, lock: bool = False,
+             order_type: OrderType = OrderType.LIMIT):
         """
         Send sell order to close a long position.
         """
-        return self.send_order(Direction.SHORT, Offset.CLOSE, price, volume, stop, lock)
+        return self.send_order(Direction.SHORT, Offset.CLOSE, price, volume, stop, lock, order_type)
 
-    def short(self, price: float, volume: float, stop: bool = False, lock: bool = False):
+    def short(self, price: float, volume: float, stop: bool = False, lock: bool = False,
+              order_type: OrderType = OrderType.LIMIT):
         """
         Send short order to open as short position.
         """
-        return self.send_order(Direction.SHORT, Offset.OPEN, price, volume, stop, lock)
+        return self.send_order(Direction.SHORT, Offset.OPEN, price, volume, stop, lock, order_type)
 
-    def cover(self, price: float, volume: float, stop: bool = False, lock: bool = False):
+    def cover(self, price: float, volume: float, stop: bool = False, lock: bool = False,
+              order_type: OrderType = OrderType.LIMIT):
         """
         Send cover order to close a short position.
         """
-        return self.send_order(Direction.LONG, Offset.CLOSE, price, volume, stop, lock)
+        return self.send_order(Direction.LONG, Offset.CLOSE, price, volume, stop, lock, order_type)
 
     def send_order(
-        self,
-        direction: Direction,
-        offset: Offset,
-        price: float,
-        volume: float,
-        stop: bool = False,
-        lock: bool = False
+            self,
+            direction: Direction,
+            offset: Offset,
+            price: float,
+            volume: float,
+            stop: bool = False,
+            lock: bool = False,
+            order_type: OrderType = OrderType.LIMIT
     ):
         """
         Send a new order.
@@ -189,7 +194,7 @@ class CtaTemplate(ABC):
         if self.trading:
             vt_orderids = self.cta_engine.send_order(
                 self, direction, offset, price, volume, stop, lock
-            )
+                , order_type)
             return vt_orderids
         else:
             return []
@@ -227,11 +232,11 @@ class CtaTemplate(ABC):
         return self.cta_engine.get_pricetick(self)
 
     def load_bar(
-        self,
-        days: int,
-        interval: Interval = Interval.MINUTE,
-        callback: Callable = None,
-        use_database: bool = False
+            self,
+            days: int,
+            interval: Interval = Interval.MINUTE,
+            callback: Callable = None,
+            use_database: bool = False
     ):
         """
         Load historical bar data for initializing strategy.

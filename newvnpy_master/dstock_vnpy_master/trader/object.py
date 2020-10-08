@@ -5,7 +5,6 @@ Basic data structure used for general trading function in VN Trader.
 from dataclasses import dataclass
 from datetime import datetime
 from logging import INFO
-
 from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType
 
 ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
@@ -111,6 +110,7 @@ class OrderData(BaseData):
     orderid: str
 
     type: OrderType = OrderType.LIMIT
+    order_type: OrderType = OrderType.MakerPostOnly
     direction: Direction = None
     offset: Offset = Offset.NONE
     price: float = 0
@@ -277,10 +277,12 @@ class OrderRequest:
     exchange: Exchange
     direction: Direction
     type: OrderType
+    order_type: OrderType
     volume: float
     price: float = 0
     offset: Offset = Offset.NONE
     reference: str = ""
+    order = 0
 
     def __post_init__(self):
         """"""
@@ -290,18 +292,33 @@ class OrderRequest:
         """
         Create order data from request.
         """
-        order = OrderData(
-            symbol=self.symbol,
-            exchange=self.exchange,
-            orderid=orderid,
-            type=self.type,
-            direction=self.direction,
-            offset=self.offset,
-            price=self.price,
-            volume=self.volume,
-            gateway_name=gateway_name,
-        )
-        return order
+        if self.exchange.value == Exchange.OKEX:
+            if self.order_type == OrderType.MakerPostOnly:
+                self.order = OrderData(
+                    symbol=self.symbol,
+                    exchange=self.exchange,
+                    orderid=orderid,
+                    type=self.type,
+                    order_type=self.order_type,
+                    direction=self.direction,
+                    offset=self.offset,
+                    price=self.price,
+                    volume=self.volume,
+                    gateway_name=gateway_name,
+                )
+        else:
+            self.order = OrderData(
+                symbol=self.symbol,
+                exchange=self.exchange,
+                orderid=orderid,
+                type=self.type,
+                direction=self.direction,
+                offset=self.offset,
+                price=self.price,
+                volume=self.volume,
+                gateway_name=gateway_name,
+            )
+        return self.order
 
 
 @dataclass

@@ -61,6 +61,12 @@ ORDERTYPE_VT2OKEX = {
     OrderType.LIMIT: "limit",
     OrderType.MARKET: "market"
 }
+
+ORDERTYPEMAKER_VT2OKEX = {
+    OrderType.LIMIT: "0",
+    OrderType.MakerPostOnly: "1"
+}
+
 ORDERTYPE_OKEX2VT = {v: k for k, v in ORDERTYPE_VT2OKEX.items()}
 
 INTERVAL_VT2OKEX = {
@@ -250,7 +256,8 @@ class OkexRestApi(RestClient):
             "client_oid": orderid,
             "type": ORDERTYPE_VT2OKEX[req.type],
             "side": DIRECTION_VT2OKEX[req.direction],
-            "instrument_id": req.symbol
+            "instrument_id": req.symbol,
+            "order_type": ORDERTYPEMAKER_VT2OKEX[req.order_type]
         }
 
         if req.type == OrderType.MARKET:

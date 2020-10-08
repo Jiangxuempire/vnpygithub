@@ -72,19 +72,19 @@ if __name__ == '__main__':
 
             if f == name:
                 df = pd.read_csv(file, skiprows=1, encoding='gbk')
-                df.rename(columns={"candle_begin_time": 'Datetime', "open": 'Open', "high": 'High',
-                                   "low": 'Low', "close": 'Close', "volume": 'Volume'}, inplace=True)  # 重命名
-                df = df[['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']]
+                df.rename(columns={"candle_begin_time": 'datetime', "open": 'open', "high": 'high',
+                                   "low": 'low', "close": 'close', "volume": 'volume'}, inplace=True)  # 重命名
+                df = df[['datetime', 'open', 'high', 'low', 'close', 'volume']]
                 all_df = all_df.append(df, ignore_index=True)  # 把所有文件拼接起来
 
         if len(all_df) > 100:
             # 按照开盘时间去重
-            all_df.drop_duplicates(subset=['Datetime'], inplace=True, keep='first')
+            all_df.drop_duplicates(subset=['datetime'], inplace=True, keep='first')
 
             # 按照时间排序  ascending=1 升序  0 降序  inplace=True直接替换原来的，或者使用all_df=all_dfsort_values(by=['开盘时间'],ascending=1)
-            all_df.sort_values(by=['Datetime'], ascending=1, inplace=True)
+            all_df.sort_values(by=['datetime'], ascending=1, inplace=True)
 
-            all_df.set_index('Datetime', inplace=True)
+            all_df.set_index('datetime', inplace=True)
             file = csv_files + "/" + str(name) + '_1min.csv'
             all_df.to_csv(file)
             print(f"{name},保存成功")

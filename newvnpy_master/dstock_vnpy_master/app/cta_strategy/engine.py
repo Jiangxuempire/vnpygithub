@@ -279,7 +279,8 @@ class CtaEngine(BaseEngine):
                     stop_order.offset,
                     price,
                     stop_order.volume,
-                    stop_order.lock
+                    stop_order.lock,
+                    order_type=OrderType.LIMIT
                 )
 
                 # Update stop order status if placed successfully

@@ -1,9 +1,9 @@
 # _*_coding : UTF-8 _*_
-#开发团队 ：yunya
-#开发人员 ：Administrator
-#开发时间 : 2020/6/29 10:57
-#文件名称 ：aberrationstrategy.py
-#开发工具 ： PyCharm
+# 开发团队 ：yunya
+# 开发人员 ：Administrator
+# 开发时间 : 2020/6/29 10:57
+# 文件名称 ：aberrationstrategy.py
+# 开发工具 ： PyCharm
 import talib
 
 from vnpy.app.cta_strategy import (
@@ -17,12 +17,11 @@ from vnpy.app.cta_strategy import (
     ArrayManager,
 )
 from vnpy.trader.object import Direction
-from  vnpy.app.cta_strategy.new_strategy import NewBarGenerator
+from vnpy.app.cta_strategy.new_strategy import NewBarGenerator
+
 
 class AberrationStrategy(CtaTemplate):
-    """
-    目前使用中轨加速，可以考虑使用另外一根均线来加速，这样可以避免在开仓时被平。
-    """
+    """"""
     author = "yunya"
 
     open_window = 15
@@ -30,10 +29,6 @@ class AberrationStrategy(CtaTemplate):
     boll_dev = 2.0
     cci_length = 6
     cci_exit = 10.0
-    atr_window = 16
-    atr_multiple = 2.0
-    long_trailing = 4.0
-    short_trailing = 4.0
     fixed_size = 1
 
     boll_up = 0
@@ -48,41 +43,29 @@ class AberrationStrategy(CtaTemplate):
     exit_long_last = 0
     exit_short_nex = 0
     exit_short_last = 0
-    long_stop_trade = 0
-    short_stop_trade = 0
-    trade_price_long = 0
-    trade_price_short = 0
 
     parameters = [
-                "open_window",
-                "boll_length",
-                "boll_dev",
-                "cci_length",
-                "cci_exit",
-                "atr_window",
-                "atr_multiple",
-                "long_trailing",
-                "short_trailing",
-                "fixed_size",
-                ]
+        "open_window",
+        "boll_length",
+        "boll_dev",
+        "cci_length",
+        "cci_exit",
+        "fixed_size",
+    ]
 
     variables = [
-                "boll_up",
-                "boll_down",
-                "boll_mid",
-                "cci_value",
-                "exit_long",
-                "exit_short",
-                "boll_length_new",
-                "exit_long_nex",
-                "exit_long_last",
-                "exit_short_nex",
-                "exit_short_last",
-                "long_stop_trade",
-                "short_stop_trade",
-                "trade_price_long",
-                "trade_price_short",
-                ]
+        "boll_up",
+        "boll_down",
+        "boll_mid",
+        "cci_value",
+        "exit_long",
+        "exit_short",
+        "boll_length_new",
+        "exit_long_nex",
+        "exit_long_last",
+        "exit_short_nex",
+        "exit_short_last",
+    ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
         """"""
@@ -103,12 +86,14 @@ class AberrationStrategy(CtaTemplate):
         Callback when strategy is started.
         """
         self.write_log("策略启动")
+        self.put_event()
 
     def on_stop(self):
         """
         Callback when strategy is stopped.
         """
         self.write_log("策略停止")
+        self.put_event()
 
     def on_tick(self, tick: TickData):
         """
@@ -144,13 +129,11 @@ class AberrationStrategy(CtaTemplate):
             self.exit_short_last = 0
             self.boll_length_new = self.boll_length
 
-            self.atr_value = am.atr(self.atr_window)
-
             if self.cci_value > self.cci_exit:
-                self.buy(self.boll_up, self.fixed_size, True)
+                self.buy(self.boll_up, self.fixed_size, stop=True)
 
             if self.cci_value < -self.cci_exit:
-                self.short(self.boll_down, self.fixed_size, True)
+                self.short(self.boll_down, self.fixed_size, stop=True)
 
         elif self.pos > 0:
             # 上涨或下跌时，布林中轨均值减1
@@ -158,7 +141,7 @@ class AberrationStrategy(CtaTemplate):
 
             if close_long:
                 self.boll_length_new -= 1
-                self.boll_length_new = max(self.boll_length_new, 10)
+                self.boll_length_new = max(self.boll_length_new, 20)
 
             # 计算新的布林带
             self.boll_mid_new = am.sma(self.boll_length_new, True)
@@ -188,19 +171,15 @@ class AberrationStrategy(CtaTemplate):
             else:
                 self.exit_long = self.boll_mid
                 # print(f"我是多单，收盘价在新中轨上方，以原中轨挂止损单:{self.exit_long}")
-            if bar.close_price < self.trade_price_long * (1 - self.long_trailing / 100):
-                exit_long_price = self.trade_price_long * (1 - (self.long_trailing + 1) / 100)
-                self.exit_long = max(exit_long_price, self.exit_long)
 
-            self.exit_long = max(self.exit_long, self.long_stop_trade)
-            self.sell(self.exit_long, abs(self.pos), True)
+            self.sell(self.exit_long, abs(self.pos), stop=True)
 
         elif self.pos < 0:
             close_short = am.close[-1] < am.close[-2] < am.close[-3]
 
             if close_short:
                 self.boll_length_new -= 1
-                self.boll_length_new = max(self.boll_length_new, 10)
+                self.boll_length_new = max(self.boll_length_new, 20)
 
             # 计算新的布林带
             self.boll_mid_new = am.sma(self.boll_length_new, True)
@@ -222,18 +201,14 @@ class AberrationStrategy(CtaTemplate):
 
                     elif bar.close_price > self.boll_mid:
                         self.exit_short = bar.close_price
+
                     else:
                         self.exit_short = self.boll_mid
+
             else:
                 self.exit_short = self.boll_mid
-            #
-            if bar.close_price > self.trade_price_short * (1 + self.short_trailing / 100):
-                exit_short_price = self.trade_price_short * (1 + (self.short_trailing + 1) / 100)
-                self.exit_short = min(exit_short_price, self.exit_short)
 
-            self.exit_short = min(self.exit_short, self.short_stop_trade)
-
-            self.cover(self.exit_short, abs(self.pos), True)
+            self.cover(self.exit_short, abs(self.pos), stop=True)
 
         self.put_event()
         self.sync_data()
@@ -249,12 +224,12 @@ class AberrationStrategy(CtaTemplate):
         """
         Callback of new trade data update.
         """
-        if trade.direction == Direction.LONG:
-            self.trade_price_long = trade.price  # 成交最高价
-            self.long_stop_trade = self.trade_price_long - self.atr_multiple * self.atr_value
-        else:
-            self.trade_price_short = trade.price
-            self.short_stop_trade = self.trade_price_short + self.atr_multiple * self.atr_value
-
-        self.sync_data()
         self.put_event()
+        pass
+
+    def on_stop_order(self, stop_order: StopOrder):
+        """
+        Callback of stop order update.
+        """
+        self.put_event()
+        pass

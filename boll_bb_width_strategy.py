@@ -1,9 +1,9 @@
 # _*_coding : UTF-8 _*_
-#开发团队 ：yunya
-#开发人员 ：Administrator
-#开发时间 : 2020/6/17 21:49
-#文件名称 ：boll_control_dc_strategy.py
-#开发工具 ： PyCharm
+# 开发团队 ：yunya
+# 开发人员 ：Administrator
+# 开发时间 : 2020/6/17 21:49
+# 文件名称 ：boll_bb_width_strategy.py
+# 开发工具 ： PyCharm
 
 from vnpy.app.cta_strategy import (
     CtaTemplate,
@@ -16,10 +16,15 @@ from vnpy.app.cta_strategy import (
     ArrayManager,
 )
 from vnpy.trader.object import Direction
-from  vnpy.app.cta_strategy.new_strategy import NewBarGenerator
+from vnpy.app.cta_strategy.new_strategy import NewBarGenerator
 
-class Boll_Control_Dcs_trategy(CtaTemplate):
-    """"""
+
+class BollBbWidthtrategy(CtaTemplate):
+    """
+    布林带策略优化：
+        1、计算布林极限指标  BB = （收盘价 - 布林下轨）/(上轨 - 下轩)  区间：0-1
+        2、计算布林宽度指标 width = （上轨 - 下轨） / 中轨  区间： 
+    """
     author = "yunya"
 
     open_window = 36
@@ -42,21 +47,20 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
     exit_long = 0
     entry_ema = 0
 
-
     parameters = [
-                "open_window",
-                "boll_length",
-                "dc_length",
-                "sl_multiplier",
-                "prop",
-                "fixed_size",
-                ]
+        "open_window",
+        "boll_length",
+        "dc_length",
+        "sl_multiplier",
+        "prop",
+        "fixed_size",
+    ]
 
     variables = [
-                "entry_crossover",
-                "long_stop",
-                "short_stop"
-                ]
+        "entry_crossover",
+        "long_stop",
+        "short_stop"
+    ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
         """"""
@@ -130,23 +134,21 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
 
         # Get crossover
         if (
-            last_close <= last_boll_up
-            and bar.close_price > currnet_boll_up
-            and bar.close_price < up_limit
+                last_close <= last_boll_up
+                and currnet_boll_up < bar.close_price < up_limit
         ):
             self.entry_crossover = 1
         elif (
-            last_close >= last_boll_down
-            and bar.close_price < current_boll_down
-            and bar.close_price > down_limit
+                last_close >= last_boll_down
+                and current_boll_down > bar.close_price > down_limit
         ):
             self.entry_crossover = -1
 
-        if(last_close <=last_sma
-            and bar.close_price > current_sma):
+        if (last_close <= last_sma
+                and bar.close_price > current_sma):
             self.entry_ema = -1
         elif (last_close >= last_sma
-            and bar.close_price < current_sma):
+              and bar.close_price < current_sma):
             self.entry_ema = 1
         else:
             self.entry_ema = 0
@@ -173,8 +175,8 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
             self.intra_trade_low = bar.low_price
 
             long_stop_high = self.intra_trade_high - boll_width * self.sl_multiplier
-            long_high_trade = max(long_stop_high,self.long_stop_trade)
-            self.long_stop = max(self.exit_long,long_high_trade)
+            long_high_trade = max(long_stop_high, self.long_stop_trade)
+            self.long_stop = max(self.exit_long, long_high_trade)
 
             self.sell(self.long_stop, abs(self.pos), True)
 
@@ -187,8 +189,8 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
                 self.intra_trade_low = min(self.intra_trade_low, bar.low_price)
 
                 short_stop_low = self.intra_trade_low + boll_width * self.sl_multiplier
-                short_low_trade = min(short_stop_low,self.short_stop_trade)
-                self.short_stop = min(short_low_trade,self.exit_short)
+                short_low_trade = min(short_stop_low, self.short_stop_trade)
+                self.short_stop = min(short_low_trade, self.exit_short)
 
                 self.cover(self.short_stop, abs(self.pos), True)
 
@@ -222,5 +224,3 @@ class Boll_Control_Dcs_trategy(CtaTemplate):
         """
         self.put_event()
         pass
-
-

@@ -22,7 +22,7 @@ def radio_array(array, boll_length, bar_length):
     :return: 
     """
     bar_lengths = bar_length * 2
-    bar_array = array[-boll_length * bar_length:] / array[-boll_length * bar_lengths: -boll_length * bar_length] - 1
+    bar_array = array[-boll_length * bar_length:] / array[-boll_length * bar_lengths: -boll_length * bar_length]
 
     return bar_array
 

@@ -1,8 +1,19 @@
+import numpy as np
 
-min_volume = 10.0
-current_volume = 958.234158
+data = np.arange(20)
 
-len_tick_decimal = len(str(min_volume).split(".")[1])
-current_volume = float(format(current_volume, f".{len_tick_decimal}f"))
+def rolling_window(a, window):
+    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+    strides = a.strides + (a.strides[-1],)
+    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
 
-print(current_volume)
+a = rolling_window(data,10)
+print(a)
+exit()
+
+
+
+np.mean(rolling_window(data,10))
+
+
+np.mean(rolling_window(data,10),-1)

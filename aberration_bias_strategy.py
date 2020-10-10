@@ -26,7 +26,7 @@ class AberrationBiasStrategy(CtaTemplate):
     """
     author = "yunya"
 
-    open_window = 60
+    open_window = 15
     boll_length = 80
     boll_dev = 2.0
     bias = 1.0

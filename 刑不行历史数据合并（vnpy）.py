@@ -88,3 +88,4 @@ if __name__ == '__main__':
             file = csv_files + "/" + str(name) + '_1min.csv'
             all_df.to_csv(file)
             print(f"{name},保存成功")
+    print("全部保存成功，运行结束！！")

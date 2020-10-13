@@ -172,15 +172,14 @@ class RsiAdaptStrategy(CtaTemplate):
 		if not self.am_open.inited or not self.am_xminute.inited:
 			return
 
-		ema_mid_array = self.am_open.ema(self.kk_length,True)
-		atr = self.am_open.atr(self.kk_length,True)
+		ema_mid_array = self.am_open.ema(self.kk_length, True)
+		atr = self.am_open.atr(self.kk_length, True)
 		kk_up_array = ema_mid_array + atr * self.kk_dev
 		kk_down_array = ema_mid_array - atr * self.kk_dev
 
 		self.ema_mid = ema_mid_array[-1]
 		self.kk_up = kk_up_array[-1]
 		self.kk_down = kk_down_array[-1]
-
 
 		self.current_close = self.am_open.close[-1]
 		self.last_close = self.am_open.close[-2]

@@ -15,7 +15,7 @@ from vnpy.strategy.vnpygithub.back_file import Backtest
 # 导入策略
 
 
-from vnpy.strategy.vnpygithub.boll_vix import BollVix
+from vnpy.strategy.vnpygithub.boll_vix_v1 import BollVix
 
 
 ##############################################################################

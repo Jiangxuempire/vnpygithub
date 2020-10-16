@@ -1,19 +1,17 @@
-import numpy as np
+import decimal
 
-data = np.arange(20)
+d = decimal.Decimal(3)
+a = decimal.Decimal(3.1415926)
 
-def rolling_window(a, window):
-    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
-    strides = a.strides + (a.strides[-1],)
-    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+print(d)  # 3
+print(a)  # 3.14159260000000006840537025709636509418487548828125
+print(d + a + a)  # 9.283185200000000136810740514
 
-a = rolling_window(data,10)
-print(a)
-exit()
+# 设置全局精度
+decimal.getcontext().prec = 2
+d = decimal.Decimal(3)
+a = decimal.Decimal('3.1415926')
+print(d)  # 3
+print(a)  # 3.1415926
+print(d + a + a)  # 9.28
 
-
-
-np.mean(rolling_window(data,10))
-
-
-np.mean(rolling_window(data,10),-1)

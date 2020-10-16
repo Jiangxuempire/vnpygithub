@@ -13,12 +13,13 @@ from vnpy.trader.constant import Interval, Direction, Offset
 import numpy as np
 
 
-class BollVix(CtaTemplate):
+class BollVixV2(CtaTemplate):
     """"""
     author = "yunya"
 
     open_window = 30
-    boll_window = 80
+    boll_length = 610
+    dc_length = 80
     fixed_size = 1
 
     boll_mid_current = 0
@@ -30,6 +31,10 @@ class BollVix(CtaTemplate):
     target_pos = 0
     pos_inited = 0
     boll_mid = 0
+    exit_long = 0
+    exit_short = 0
+    long_price = 0
+    short_price = 0
 
     # 画图专用
     time_list = []
@@ -44,6 +49,8 @@ class BollVix(CtaTemplate):
     mid_new_list = []
     bias_value_list = []
     bias_list = []
+    exit_long_list = []
+    exit_short_list = []
     singnal_plot = []
     singnal_list = None
     singnal = None
@@ -52,7 +59,7 @@ class BollVix(CtaTemplate):
 
     parameters = [
         "open_window",
-        "boll_window",
+        "boll_length",
         "fixed_size",
     ]
 
@@ -72,7 +79,7 @@ class BollVix(CtaTemplate):
         super().__init__(cta_engine, strategy_name, vt_symbol, setting)
 
         self.bg = NewBarGenerator(self.on_bar, self.open_window, self.on_minute_bar, interval=Interval.MINUTE)
-        self.am = ArrayManager(self.boll_window * 2)
+        self.am = ArrayManager(self.boll_length * 2)
 
         self.up_array: np.ndarray = np.zeros(5)
         self.down_array: np.ndarray = np.zeros(5)
@@ -156,18 +163,26 @@ class BollVix(CtaTemplate):
             return
 
         # 计算布林
-        self.boll_calculate()
-        if not self.boll_inited:
-            return
+        sma_array = self.am.sma(self.boll_length, True)
+        std_array = self.am.std(self.boll_length, True)
+        dev = abs(self.am.close[:-1] - sma_array[:-1]) / std_array[:-1]
+        # dev_max = dev[-self.boll_length:].max()
+        dev_max = dev[-self.boll_length:].mean()
+        up = sma_array + std_array * dev_max
+        down = sma_array - std_array * dev_max
 
-        boll_mid_array = self.am.sma(self.boll_window, True)
+        boll_mid_array = self.am.sma(self.boll_length, True)
+
+        dc_up, dc_down = self.am.donchian(self.dc_length, True)
+        self.exit_short = dc_up[-2]
+        self.exit_long = dc_down[-2]
 
         # 计算数组
         self.boll_mid = boll_mid_array[-2]
-        self.boll_up_current = self.up_array[-1]
-        self.boll_up_last = self.up_array[-2]
-        self.boll_down_current = self.down_array[-1]
-        self.boll_down_last = self.down_array[-2]
+        self.boll_up_current = up[-1]
+        self.boll_up_last = up[-2]
+        self.boll_down_current = down[-1]
+        self.boll_down_last = down[-2]
 
         if not self.pos:
             self.pos_inited = 0
@@ -175,7 +190,7 @@ class BollVix(CtaTemplate):
             if self.am.close[-1] > self.boll_up_current and self.am.close[-2] <= self.boll_up_last:
 
                 if self.engine_type == EngineType.BACKTESTING:
-                    self.buy(self.boll_up_current, self.fixed_size)
+                    self.buy(bar.close_price, self.fixed_size)
                 else:
                     self.target_pos = self.fixed_size
                     print("没有仓位，我开多")
@@ -183,51 +198,55 @@ class BollVix(CtaTemplate):
             elif self.am.close[-1] < self.boll_down_current and self.am.close[-2] >= self.boll_down_last:
 
                 if self.engine_type == EngineType.BACKTESTING:
-                    self.short(self.boll_down_current, self.fixed_size)
+                    self.short(bar.close_price, self.fixed_size)
                 else:
                     self.target_pos = -self.fixed_size
                     print("没有仓位，我开空")
 
         elif self.pos > 0:
-            self.sell(self.boll_mid, abs(self.pos), True)
+
+            self.long_price = max(self.exit_long, self.boll_mid)
+            self.sell(self.long_price, abs(self.pos), True)
 
         elif self.pos < 0:
-            self.cover(self.boll_mid, abs(self.pos), True)
+            self.short_price = min(self.exit_short, self.boll_mid)
+            self.cover(self.short_price, abs(self.pos), True)
+        #
+        #   画图专用
+        if self.singnal != self.singnal_list:
+            plot = self.singnal
+        else:
+            plot = None
 
-            # 画图专用
-            if self.singnal != self.singnal_list:
-                plot = self.singnal
-            else:
-                plot = None
+        self.time_list.append(bar.datetime)
+        self.open_list.append(bar.open_price)
+        self.high_list.append(bar.high_price)
+        self.low_list.append(bar.low_price)
+        self.close_list.append(bar.close_price)
+        self.volume_list.append(bar.volume)
+        self.up_list.append(self.boll_up_current)
+        self.down_list.append(self.boll_down_current)
+        self.mid_list.append(self.boll_mid)
+        self.exit_long_list.append(self.long_price)
+        self.exit_short_list.append(self.short_price)
+        self.singnal_plot.append(plot)
 
-            self.time_list.append(bar.datetime)
-            self.open_list.append(bar.open_price)
-            self.high_list.append(bar.high_price)
-            self.low_list.append(bar.low_price)
-            self.close_list.append(bar.close_price)
-            self.volume_list.append(bar.volume)
-            self.up_list.append(self.boll_up_current)
-            self.down_list.append(self.boll_down_current)
-            self.mid_list.append(self.boll_mid)
-            self.singnal_plot.append(plot)
+        self.plot_echarts = {
+            "datetime": self.time_list,
+            "open": self.open_list,
+            "high": self.high_list,
+            "low": self.low_list,
+            "close": self.close_list,
+            "volume": self.low_list,
+            "boll_up": self.up_list,
+            "boll_down": self.down_list,
+            "boll_mid": self.mid_list,
+            "exit_long": self.exit_long_list,
+            "exit_short": self.exit_short_list,
+            "signal": self.singnal_plot
 
-            self.plot_echarts = {
-                "datetime": self.time_list,
-                "open": self.open_list,
-                "high": self.high_list,
-                "low": self.low_list,
-                "close": self.close_list,
-                "volume": self.low_list,
-                "boll_up": self.up_list,
-                "boll_down": self.down_list,
-                "boll_mid": self.mid_list,
-                "boll_mid_new": self.mid_new_list,
-                "bias": self.bias_value_list,
-                "bias_value": self.bias_list,
-                "signal": self.singnal_plot
-
-            }
-            self.singnal_list = self.singnal
+        }
+        self.singnal_list = self.singnal
 
         self.put_event()
 
@@ -282,10 +301,10 @@ class BollVix(CtaTemplate):
         self.up_array[:-1] = self.up_array[1:]
         self.down_array[:-1] = self.down_array[1:]
 
-        sma_array = self.am.sma(self.boll_window, True)
-        std_array = self.am.std(self.boll_window, True)
+        sma_array = self.am.sma(self.boll_length, True)
+        std_array = self.am.std(self.boll_length, True)
         dev = abs(self.am.close[:-1] - sma_array[:-1]) / std_array[:-1]
-        dev_max = dev[-self.boll_window:].max()
+        dev_max = dev[-self.boll_length:].max()
         up = sma_array[-1] + std_array[-1] * dev_max
         down = sma_array[-1] - std_array[-1] * dev_max
 

@@ -4,6 +4,8 @@
 # 开发时间 : 2020/6/29 10:57
 # 文件名称 ：aberrationstrategy.py
 # 开发工具 ： PyCharm
+import talib
+from vnpy.trader.constant import Offset
 
 from vnpy.app.cta_strategy import (
     CtaTemplate,
@@ -15,23 +17,20 @@ from vnpy.app.cta_strategy import (
     BarGenerator,
     ArrayManager,
 )
-from vnpy.strategy.vnpygithub.newvnpy_master.dstock_vnpy_master.trader.constant import Offset
 from vnpy.trader.object import Direction
 from vnpy.app.cta_strategy.new_strategy import NewBarGenerator
-import datetime
 
 
-class AberrationBiasStrategy(CtaTemplate):
+class AberrationBias_V1_Strategy(CtaTemplate):
     """
     目前使用中轨加速，可以考虑使用另外一根均线来加速，这样可以避免在开仓时被平。
     """
     author = "yunya"
 
     open_window = 15
-    boll_length = 470
-    boll_dev = 1.8
-    bias = 0.19
-    boll_amplitude = 4.0
+    boll_length = 560
+    boll_dev = 1.6
+    bias = 0.16
     cci_length = 6
     cci_exit = 10.0
     fixed_size = 1
@@ -51,13 +50,6 @@ class AberrationBiasStrategy(CtaTemplate):
     exit_long_last = 0
     exit_short_nex = 0
     exit_short_last = 0
-    boll_diff_min = 0
-    boll_diff_ma = 0
-    boll_diff = 0
-    amplitude = 0
-    stop_time = 8
-    time_stop = 0
-    amplitude_inited = False
 
     # 画图专用
     time_list = []
@@ -70,6 +62,8 @@ class AberrationBiasStrategy(CtaTemplate):
     down_list = []
     mid_list = []
     mid_new_list = []
+    exit_long_list = []
+    exit_short_list = []
     bias_value_list = []
     bias_list = []
     singnal_plot = []
@@ -108,9 +102,7 @@ class AberrationBiasStrategy(CtaTemplate):
         super().__init__(cta_engine, strategy_name, vt_symbol, setting)
 
         self.bg = BarGenerator(self.on_bar, self.open_window, self.on_xmin_bar)
-        self.am = ArrayManager(int(self.boll_length) + 100)
-
-        self.boll_length_new = self.boll_length
+        self.am = ArrayManager(int(self.boll_length) * 2 + 10)
 
     def on_init(self):
         """
@@ -153,27 +145,24 @@ class AberrationBiasStrategy(CtaTemplate):
             return
 
         # 计算原布林带
-        boll_up_array, boll_down_array = self.am.boll(self.boll_length, self.boll_dev, True)
-        boll_mid_array = am.sma(self.boll_length, True)
-        self.bias_value_array = (self.am.close - boll_mid_array) / boll_mid_array
-
-        self.boll_up = boll_up_array[-1]
-        self.boll_down = boll_down_array[-1]
-        self.boll_mid = boll_mid_array[-1]
+        self.boll_up, self.boll_down = self.am.boll(self.boll_length, self.boll_dev)
+        self.boll_mid_array = am.sma(self.boll_length, True)
+        self.boll_mid = self.boll_mid_array[-1]
+        self.bias_value_array = (self.am.close - self.boll_mid_array) / self.boll_mid_array
         self.bias_value = self.bias_value_array[-1]
 
         self.cci_value = am.cci(self.cci_length)
 
-        #   计算波动度
-        self.amplitude = (bar.high_price - bar.low_price) / bar.high_price
-
-        #   计算新中轨
-        close_short = am.close[-1] < am.close[-2]
+        # 上涨或下跌时，布林中轨均值减1
         close_long = am.close[-1] > am.close[-2]
-        if close_short or close_long:
-            self.boll_length_new -= 1
-            self.boll_length_new = max(self.boll_length_new, 10)
-        self.boll_mid_new = am.sma(self.boll_length_new, True)
+        close_short = am.close[-1] < am.close[-2]
+
+        if close_long or close_short:
+            self.boll_length_new -= 2
+            self.boll_length_new = max(self.boll_length_new, 5)
+
+        # 计算新的布林带
+        self.boll_mid_new = am.sma(int(self.boll_length_new), True)
 
         # 如果没有仓位，两条布林window一样
         if self.pos == 0:
@@ -183,11 +172,13 @@ class AberrationBiasStrategy(CtaTemplate):
             self.exit_short_last = 0
             self.boll_length_new = self.boll_length
 
-            if self.cci_value > self.cci_exit:
-                self.buy(self.boll_up, self.fixed_size, True)
+            #   远离均线不开仓位
+            if self.bias > abs(self.bias_value):
+                if self.cci_value > self.cci_exit:
+                    self.buy(self.boll_up, self.fixed_size, True)
 
-            if self.cci_value < -self.cci_exit:
-                self.short(self.boll_down, self.fixed_size, True)
+                if self.cci_value < -self.cci_exit:
+                    self.short(self.boll_down, self.fixed_size, True)
 
         elif self.pos > 0:
 
@@ -214,19 +205,20 @@ class AberrationBiasStrategy(CtaTemplate):
                         self.exit_long = self.boll_mid
                         # print(f"我是多单，收盘价在两个中轨均值下方，以原中轨挂止损单:{self.exit_long},")
             else:
-                self.exit_long = self.boll_mid
+                self.exit_long = (self.boll_mid + self.boll_mid_new[-2]) / 2
                 # print(f"我是多单，收盘价在新中轨上方，以原中轨挂止损单:{self.exit_long}")
 
-            #   如果振幅过大，暂时不启动乘离率背离平仓
-            if self.amplitude_inited:
-                if self.bias_value < self.bias:
-                    self.exit_long = max(bar.close_price, self.exit_long)
-                if bar.datetime > self.time_stop:
-                    self.amplitude_inited = False
+            if self.bias_value > self.bias:
+                self.exit_long = max(bar.close_price, self.exit_long)
+
+            exit_long = (self.boll_mid + self.boll_mid_new[-1]) / 2
+            if bar.close_price > exit_long:
+                self.exit_long = max(self.exit_long, exit_long)
 
             self.sell(self.exit_long, abs(self.pos), True)
 
         elif self.pos < 0:
+
             # 仓位是short 时，如果价格上穿新布林中轨
             con3 = am.close[-1] > self.boll_mid_new[-1]
             con4 = am.close[-2] <= self.boll_mid_new[-2]
@@ -249,59 +241,56 @@ class AberrationBiasStrategy(CtaTemplate):
                         self.exit_short = self.boll_mid
 
             else:
-                self.exit_short = self.boll_mid
+                self.exit_short = (self.boll_mid + self.boll_mid_new[-1]) / 2
 
-            if self.amplitude_inited:
-                if self.bias_value < -self.bias:
-                    self.exit_short = min(self.exit_short, bar.close_price)
+            if self.bias_value < -self.bias:
+                self.exit_short = min(self.exit_short, bar.close_price)
 
-                if bar.datetime > self.time_stop:
-                    self.amplitude_inited = False
+            exit_short = (self.boll_mid + self.boll_mid_new[-1]) / 2
+            if bar.close_price < exit_short:
+                self.exit_short = min(self.exit_short, exit_short)
 
             self.cover(self.exit_short, abs(self.pos), True)
 
-        #   判断振幅是否过大
-        if self.amplitude > self.boll_amplitude / 100:
-            self.amplitude_inited = True
-            self.time_stop = bar.datetime + datetime.timedelta(hours=self.stop_time)
-
-        # 画图专用
-        if self.singnal != self.singnal_list:
-            plot = self.singnal
-        else:
-            plot = None
-
-        self.time_list.append(bar.datetime)
-        self.open_list.append(bar.open_price)
-        self.high_list.append(bar.high_price)
-        self.low_list.append(bar.low_price)
-        self.close_list.append(bar.close_price)
-        self.volume_list.append(bar.volume)
-        self.up_list.append(self.boll_up)
-        self.down_list.append(self.boll_down)
-        self.mid_list.append(self.boll_mid)
-        self.mid_new_list.append(self.boll_mid_new[-1])
-        self.bias_value_list.append(self.bias)
-        self.bias_list.append(self.bias_value)
-        self.singnal_plot.append(plot)
-
-        self.plot_echarts = {
-            "datetime": self.time_list,
-            "open": self.open_list,
-            "high": self.high_list,
-            "low": self.low_list,
-            "close": self.close_list,
-            "volume": self.low_list,
-            "boll_up": self.up_list,
-            "boll_down": self.down_list,
-            "boll_mid": self.mid_list,
-            "boll_mid_new": self.mid_new_list,
-            "bias": self.bias_value_list,
-            "bias_value": self.bias_list,
-            "signal": self.singnal_plot
-
-        }
-        self.singnal_list = self.singnal
+        # # 画图专用
+        # if self.singnal != self.singnal_list:
+        #     plot = self.singnal
+        # else:
+        #     plot = None
+        #
+        # self.time_list.append(bar.datetime)
+        # self.open_list.append(bar.open_price)
+        # self.high_list.append(bar.high_price)
+        # self.low_list.append(bar.low_price)
+        # self.close_list.append(bar.close_price)
+        # self.volume_list.append(bar.volume)
+        # self.up_list.append(self.boll_up)
+        # self.down_list.append(self.boll_down)
+        # self.mid_list.append(self.boll_mid)
+        # self.mid_new_list.append(self.boll_mid_new[-1])
+        # self.exit_long_list.append(self.exit_long)
+        # self.exit_short_list.append(self.exit_short)
+        # self.singnal_plot.append(plot)
+        #
+        # self.plot_echarts = {
+        #     "datetime": self.time_list,
+        #     "open": self.open_list,
+        #     "high": self.high_list,
+        #     "low": self.low_list,
+        #     "close": self.close_list,
+        #     "volume": self.low_list,
+        #     "boll_up": self.up_list,
+        #     "boll_down": self.down_list,
+        #     "boll_mid": self.mid_list,
+        #     "boll_mid_new": self.mid_new_list,
+        #     "bias": self.bias_value_list,
+        #     "bias_value": self.bias_list,
+        #     "exit_long": self.exit_long_list,
+        #     "exit_short": self.exit_short_list,
+        #     "signal": self.singnal_plot
+        #
+        # }
+        # self.singnal_list = self.singnal
 
         self.put_event()
         self.sync_data()
@@ -338,10 +327,3 @@ class AberrationBiasStrategy(CtaTemplate):
 
             else:
                 self.singnal = None
-
-    def on_stop_order(self, stop_order: StopOrder):
-        """
-        Callback of stop order update.
-        """
-        self.put_event()
-        pass

@@ -117,6 +117,7 @@ class BybitGateway(BaseGateway):
         """Constructor"""
         super().__init__(event_engine, "BYBIT")
 
+        self.timer_count = 0
         self.rest_api = BybitRestApi(self)
         self.private_ws_api = BybitPrivateWebsocketApi(self)
         self.public_ws_api = BybitPublicWebsocketApi(self)
@@ -143,7 +144,6 @@ class BybitGateway(BaseGateway):
         self.private_ws_api.connect(usdt_base, key, secret, server, proxy_host, proxy_port)
         self.public_ws_api.connect(usdt_base, server, proxy_host, proxy_port)
 
-        self.timer_count = 0
         self.event_engine.register(EVENT_TIMER, self.process_timer_event)
 
     def subscribe(self, req: SubscribeRequest) -> None:
@@ -177,8 +177,15 @@ class BybitGateway(BaseGateway):
         self.public_ws_api.stop()
 
     def process_timer_event(self, event):
-        """"""
+        """
+        限制请求次数
+        """
+        self.timer_count += 1
+        if self.timer_count < 2:
+            return
         self.query_position()
+
+        self.timer_count = 0
 
 
 class BybitRestApi(RestClient):

@@ -46,7 +46,7 @@ STATUS_BYBIT2VT: Dict[str, Status] = {
     "Rejected": Status.REJECTED,
     "Active": Status.ALLTRADED,
     "Untriggered": Status.NOTTRADED,
-    "Triggered":  Status.PARTTRADED,
+    "Triggered": Status.PARTTRADED,
     "Deactivated": Status.CANCELLED,
 }
 
@@ -78,7 +78,6 @@ TIMEDELTA_MAP: Dict[Interval, timedelta] = {
     Interval.DAILY: timedelta(days=1),
     Interval.WEEKLY: timedelta(days=7),
 }
-
 
 REST_HOST = "https://api.bybit.com"
 INVERSE_WEBSOCKET_HOST = "wss://stream.bybit.com/realtime"
@@ -181,7 +180,7 @@ class BybitGateway(BaseGateway):
         限制请求次数
         """
         self.timer_count += 1
-        if self.timer_count < 2:
+        if self.timer_count < 3:
             return
         self.query_position()
 
@@ -206,7 +205,7 @@ class BybitRestApi(RestClient):
 
         self.order_count: int = 0
         self.contract_codes: set = set()
-        self.orders: dict = {}       
+        self.orders: dict = {}
 
     def sign(self, request: Request) -> Request:
         """
@@ -245,13 +244,13 @@ class BybitRestApi(RestClient):
         return orderid
 
     def connect(
-        self,
-        usdt_base: bool,
-        key: str,
-        secret: str,
-        server: str,
-        proxy_host: str,
-        proxy_port: int,
+            self,
+            usdt_base: bool,
+            key: str,
+            secret: str,
+            server: str,
+            proxy_host: str,
+            proxy_port: int,
     ) -> None:
         """
         Initialize connection to REST server.
@@ -326,9 +325,9 @@ class BybitRestApi(RestClient):
         return order.vt_orderid
 
     def on_send_order_failed(
-        self,
-        status_code: int,
-        request: Request
+            self,
+            status_code: int,
+            request: Request
     ) -> None:
         """
         Callback when sending order failed on server.
@@ -344,11 +343,11 @@ class BybitRestApi(RestClient):
         self.gateway.write_log(msg)
 
     def on_send_order_error(
-        self,
-        exception_type: type,
-        exception_value: Exception,
-        tb,
-        request: Request
+            self,
+            exception_type: type,
+            exception_value: Exception,
+            tb,
+            request: Request
     ) -> None:
         """
         Callback when sending order caused exception.
@@ -394,11 +393,11 @@ class BybitRestApi(RestClient):
         )
 
     def on_cancel_order_error(
-        self,
-        exception_type: type,
-        exception_value: Exception,
-        tb,
-        request: Request
+            self,
+            exception_type: type,
+            exception_value: Exception,
+            tb,
+            request: Request
     ) -> None:
         """
         Callback when cancelling order failed on server.
@@ -426,11 +425,11 @@ class BybitRestApi(RestClient):
         self.gateway.write_log(msg)
 
     def on_error(
-        self,
-        exception_type: type,
-        exception_value: Exception,
-        tb,
-        request: Request
+            self,
+            exception_type: type,
+            exception_value: Exception,
+            tb,
+            request: Request
     ) -> None:
         """
         Callback to handler request exception.
@@ -536,7 +535,7 @@ class BybitRestApi(RestClient):
 
         for d in result["data"]:
             orderid = d["order_link_id"]
-            if not orderid:     # Ignore order not placed by vn.py
+            if not orderid:  # Ignore order not placed by vn.py
                 continue
 
             if self.usdt_base:
@@ -624,7 +623,6 @@ class BybitRestApi(RestClient):
             symbols = symbols_inverse
 
         for symbol in symbols:
-
             params = {
                 "symbol": symbol,
                 "limit": 50,
@@ -742,11 +740,11 @@ class BybitPublicWebsocketApi(WebsocketClient):
         self.symbols_last_price: Dict[str, dict] = {}
 
     def connect(
-        self,
-        usdt_base: bool,
-        server: str,
-        proxy_host: str,
-        proxy_port: int
+            self,
+            usdt_base: bool,
+            server: str,
+            proxy_host: str,
+            proxy_port: int
     ) -> None:
         """"""
         self.usdt_base = usdt_base
@@ -800,9 +798,9 @@ class BybitPublicWebsocketApi(WebsocketClient):
         self.subscribe_topic(f"orderBookL2_25.{req.symbol}", self.on_depth)
 
     def subscribe_topic(
-        self,
-        topic: str,
-        callback: Callable[[str, dict], Any]
+            self,
+            topic: str,
+            callback: Callable[[str, dict], Any]
     ) -> None:
         """
         Subscribe to all private topics.
@@ -827,10 +825,10 @@ class BybitPublicWebsocketApi(WebsocketClient):
             callback(packet)
 
     def on_error(
-        self,
-        exception_type: type,
-        exception_value: Exception,
-        tb
+            self,
+            exception_type: type,
+            exception_value: Exception,
+            tb
     ) -> None:
         """"""
         msg = f"触发异常，状态码：{exception_type}，信息：{exception_value}"
@@ -850,7 +848,7 @@ class BybitPublicWebsocketApi(WebsocketClient):
         symbol_last_price: Dict[str, dict] = {}
 
         if type_ == "snapshot":
-            if not data["last_price_e4"]:           # Filter last price with 0 value
+            if not data["last_price_e4"]:  # Filter last price with 0 value
                 return
 
             tick.last_price = int(data["last_price_e4"]) / 10000
@@ -869,7 +867,7 @@ class BybitPublicWebsocketApi(WebsocketClient):
             update = data["update"][0]
 
             if "last_price_e4" in update:
-                if not update["last_price_e4"]:     # Filter last price with 0 value
+                if not update["last_price_e4"]:  # Filter last price with 0 value
                     return
                 tick.last_price = int(update["last_price_e4"]) / 10000
 
@@ -973,15 +971,16 @@ class BybitPrivateWebsocketApi(WebsocketClient):
 
         self.symbol_bids: Dict[str, dict] = {}
         self.symbol_asks: Dict[str, dict] = {}
+        self.list_id: str = ""
 
     def connect(
-        self,
-        usdt_base: bool,
-        key: str,
-        secret: str,
-        server: str,
-        proxy_host: str,
-        proxy_port: int
+            self,
+            usdt_base: bool,
+            key: str,
+            secret: str,
+            server: str,
+            proxy_host: str,
+            proxy_port: int
     ) -> None:
         """"""
         self.usdt_base = usdt_base
@@ -1018,9 +1017,9 @@ class BybitPrivateWebsocketApi(WebsocketClient):
         self.send_packet(req)
 
     def subscribe_topic(
-        self,
-        topic: str,
-        callback: Callable[[str, dict], Any]
+            self,
+            topic: str,
+            callback: Callable[[str, dict], Any]
     ) -> None:
         """
         Subscribe to all private topics.
@@ -1136,7 +1135,7 @@ class BybitPrivateWebsocketApi(WebsocketClient):
             )
 
             self.gateway.on_order(order)
-    
+
     def on_stop_order(self, packet: dict) -> None:
         for d in packet["data"]:
             if self.usdt_base:
@@ -1156,7 +1155,7 @@ class BybitPrivateWebsocketApi(WebsocketClient):
                 gateway_name=self.gateway_name
             )
 
-            self.gateway.on_order(order)        
+            self.gateway.on_order(order)
 
     def on_position(self, packet: dict) -> None:
         """"""

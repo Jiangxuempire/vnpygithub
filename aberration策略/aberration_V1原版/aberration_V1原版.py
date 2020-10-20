@@ -51,26 +51,26 @@ class AberrationBias_V1_Strategy(CtaTemplate):
     exit_short_nex = 0
     exit_short_last = 0
 
-    # 画图专用
-    time_list = []
-    open_list = []
-    high_list = []
-    low_list = []
-    close_list = []
-    volume_list = []
-    up_list = []
-    down_list = []
-    mid_list = []
-    mid_new_list = []
-    exit_long_list = []
-    exit_short_list = []
-    bias_value_list = []
-    bias_list = []
-    singnal_plot = []
-    singnal_list = None
-    singnal = None
-
-    plot_echarts = {}
+    # # 画图专用
+    # time_list = []
+    # open_list = []
+    # high_list = []
+    # low_list = []
+    # close_list = []
+    # volume_list = []
+    # up_list = []
+    # down_list = []
+    # mid_list = []
+    # mid_new_list = []
+    # exit_long_list = []
+    # exit_short_list = []
+    # bias_value_list = []
+    # bias_list = []
+    # singnal_plot = []
+    # singnal_list = None
+    # singnal = None
+    #
+    # plot_echarts = {}
 
     parameters = [
         "open_window",
@@ -109,7 +109,7 @@ class AberrationBias_V1_Strategy(CtaTemplate):
         Callback when strategy is inited.
         """
         self.write_log("策略初始化")
-        self.load_bar(10)
+        self.load_bar(15)
 
     def on_start(self):
         """
@@ -306,24 +306,24 @@ class AberrationBias_V1_Strategy(CtaTemplate):
         """
         Callback of new trade data update.
         """
-
+        pass
         #   画图专用
-        if trade.direction.value == Direction.LONG.value:
-            if trade.offset.value == Offset.OPEN.value:
-                self.singnal = 1
-
-            elif trade.offset.value == Offset.CLOSE.value:
-                self.singnal = 0
-
-            else:
-                self.singnal = None
-
-        elif trade.direction.value == Direction.SHORT.value:
-            if trade.offset.value == Offset.OPEN.value:
-                self.singnal = -1
-
-            elif trade.offset.value == Offset.CLOSE.value:
-                self.singnal = 0
-
-            else:
-                self.singnal = None
+        # if trade.direction.value == Direction.LONG.value:
+        #     if trade.offset.value == Offset.OPEN.value:
+        #         self.singnal = 1
+        #
+        #     elif trade.offset.value == Offset.CLOSE.value:
+        #         self.singnal = 0
+        #
+        #     else:
+        #         self.singnal = None
+        #
+        # elif trade.direction.value == Direction.SHORT.value:
+        #     if trade.offset.value == Offset.OPEN.value:
+        #         self.singnal = -1
+        #
+        #     elif trade.offset.value == Offset.CLOSE.value:
+        #         self.singnal = 0
+        #
+        #     else:
+        #         self.singnal = None

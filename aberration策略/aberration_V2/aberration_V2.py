@@ -15,11 +15,6 @@ from vnpy.app.cta_strategy import (
     BarGenerator,
     ArrayManager,
 )
-from vnpy.strategy.vnpygithub.newvnpy_master.dstock_vnpy_master.trader.constant import Offset
-from vnpy.trader.object import Direction
-from vnpy.app.cta_strategy.new_strategy import NewBarGenerator
-import datetime
-
 
 class Aberration_V2_Strategy(CtaTemplate):
     """
@@ -54,35 +49,31 @@ class Aberration_V2_Strategy(CtaTemplate):
     time_stop = 0
     amplitude_inited = False
 
-    # 画图专用
-    time_list = []
-    open_list = []
-    high_list = []
-    low_list = []
-    close_list = []
-    volume_list = []
-    up_list = []
-    down_list = []
-    mid_list = []
-    mid_new_list = []
-    bias_value_list = []
-    bias_list = []
-    singnal_plot = []
-    singnal_list = None
-    singnal = None
-
-    plot_echarts = {}
+    # # 画图专用
+    # time_list = []
+    # open_list = []
+    # high_list = []
+    # low_list = []
+    # close_list = []
+    # volume_list = []
+    # up_list = []
+    # down_list = []
+    # mid_list = []
+    # mid_new_list = []
+    # bias_value_list = []
+    # bias_list = []
+    # singnal_plot = []
+    # singnal_list = None
+    # singnal = None
+    #
+    # plot_echarts = {}
 
     parameters = [
-        "open_window",
-        "boll_length",
-        "boll_dev",
-        "bias",
-        "cci_length",
-        "cci_exit",
-        "fixed_size",
+            "open_window",
+            "boll_length",
+            "boll_dev",
+            "fixed_size",
     ]
-
     variables = [
         "boll_up",
         "boll_down",
@@ -112,7 +103,7 @@ class Aberration_V2_Strategy(CtaTemplate):
         Callback when strategy is inited.
         """
         self.write_log("策略初始化")
-        self.load_bar(10)
+        self.load_bar(15)
 
     def on_start(self):
         """
@@ -243,41 +234,41 @@ class Aberration_V2_Strategy(CtaTemplate):
 
             self.cover(self.exit_short, abs(self.pos), True)
 
-        # 画图专用
-        if self.singnal != self.singnal_list:
-            plot = self.singnal
-        else:
-            plot = None
-
-        self.time_list.append(bar.datetime)
-        self.open_list.append(bar.open_price)
-        self.high_list.append(bar.high_price)
-        self.low_list.append(bar.low_price)
-        self.close_list.append(bar.close_price)
-        self.volume_list.append(bar.volume)
-        self.up_list.append(self.boll_up)
-        self.down_list.append(self.boll_down)
-        self.mid_list.append(self.boll_mid)
-        self.mid_new_list.append(self.boll_mid_new[-1])
-        self.singnal_plot.append(plot)
-
-        self.plot_echarts = {
-            "datetime": self.time_list,
-            "open": self.open_list,
-            "high": self.high_list,
-            "low": self.low_list,
-            "close": self.close_list,
-            "volume": self.low_list,
-            "boll_up": self.up_list,
-            "boll_down": self.down_list,
-            "boll_mid": self.mid_list,
-            "boll_mid_new": self.mid_new_list,
-            "bias": self.bias_value_list,
-            "bias_value": self.bias_list,
-            "signal": self.singnal_plot
-
-        }
-        self.singnal_list = self.singnal
+        # # 画图专用
+        # if self.singnal != self.singnal_list:
+        #     plot = self.singnal
+        # else:
+        #     plot = None
+        #
+        # self.time_list.append(bar.datetime)
+        # self.open_list.append(bar.open_price)
+        # self.high_list.append(bar.high_price)
+        # self.low_list.append(bar.low_price)
+        # self.close_list.append(bar.close_price)
+        # self.volume_list.append(bar.volume)
+        # self.up_list.append(self.boll_up)
+        # self.down_list.append(self.boll_down)
+        # self.mid_list.append(self.boll_mid)
+        # self.mid_new_list.append(self.boll_mid_new[-1])
+        # self.singnal_plot.append(plot)
+        #
+        # self.plot_echarts = {
+        #     "datetime": self.time_list,
+        #     "open": self.open_list,
+        #     "high": self.high_list,
+        #     "low": self.low_list,
+        #     "close": self.close_list,
+        #     "volume": self.low_list,
+        #     "boll_up": self.up_list,
+        #     "boll_down": self.down_list,
+        #     "boll_mid": self.mid_list,
+        #     "boll_mid_new": self.mid_new_list,
+        #     "bias": self.bias_value_list,
+        #     "bias_value": self.bias_list,
+        #     "signal": self.singnal_plot
+        #
+        # }
+        # self.singnal_list = self.singnal
 
         self.put_event()
         self.sync_data()
@@ -293,27 +284,28 @@ class Aberration_V2_Strategy(CtaTemplate):
         """
         Callback of new trade data update.
         """
+        pass
 
-        #   画图专用
-        if trade.direction.value == Direction.LONG.value:
-            if trade.offset.value == Offset.OPEN.value:
-                self.singnal = 1
-
-            elif trade.offset.value == Offset.CLOSE.value:
-                self.singnal = 0
-
-            else:
-                self.singnal = None
-
-        elif trade.direction.value == Direction.SHORT.value:
-            if trade.offset.value == Offset.OPEN.value:
-                self.singnal = -1
-
-            elif trade.offset.value == Offset.CLOSE.value:
-                self.singnal = 0
-
-            else:
-                self.singnal = None
+        # #   画图专用
+        # if trade.direction.value == Direction.LONG.value:
+        #     if trade.offset.value == Offset.OPEN.value:
+        #         self.singnal = 1
+        #
+        #     elif trade.offset.value == Offset.CLOSE.value:
+        #         self.singnal = 0
+        #
+        #     else:
+        #         self.singnal = None
+        #
+        # elif trade.direction.value == Direction.SHORT.value:
+        #     if trade.offset.value == Offset.OPEN.value:
+        #         self.singnal = -1
+        #
+        #     elif trade.offset.value == Offset.CLOSE.value:
+        #         self.singnal = 0
+        #
+        #     else:
+        #         self.singnal = None
 
     def on_stop_order(self, stop_order: StopOrder):
         """

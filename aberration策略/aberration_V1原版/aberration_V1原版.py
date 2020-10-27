@@ -101,6 +101,8 @@ class AberrationBias_V1_Strategy(CtaTemplate):
         self.bg = BarGenerator(self.on_bar, self.open_window, self.on_xmin_bar)
         self.am = ArrayManager(int(self.boll_length) * 2 + 10)
 
+        self.boll_length_new = self.boll_length
+
         self.buy_price = 0
         self.sell_price = 0
         self.short_price = 0

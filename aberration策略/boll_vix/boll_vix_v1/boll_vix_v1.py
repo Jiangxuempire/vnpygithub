@@ -1,3 +1,5 @@
+import talib
+
 from vnpy.app.cta_strategy import (
     CtaTemplate,
     StopOrder,
@@ -68,7 +70,7 @@ class BollVixV1(CtaTemplate):
         super().__init__(cta_engine, strategy_name, vt_symbol, setting)
 
         self.bg = NewBarGenerator(self.on_bar, self.open_window, self.on_minute_bar, interval=Interval.MINUTE)
-        self.am = ArrayManager(self.boll_length * 2)
+        self.am = ArrayManager(int(self.boll_length * 3) + 2)
 
         self.sell_price = 0
         self.cover_price = 0
@@ -118,9 +120,10 @@ class BollVixV1(CtaTemplate):
             return
 
         # 计算布林
-        sma_array = self.am.sma(self.boll_length, True)
-        std_array = self.am.std(self.boll_length, True)
-        dev = abs(self.am.close[:-1] - sma_array[:-1]) / std_array[:-1]
+        sma_array = talib.SMA(self.am.close[:-1], self.boll_length)
+        std_array = talib.STDDEV(self.am.close[:-1], self.boll_length)
+
+        dev = abs(self.am.close[:-1] - sma_array) / std_array
         dev_max = dev[-self.boll_length:].max()
         up = sma_array + std_array * dev_max
         down = sma_array - std_array * dev_max

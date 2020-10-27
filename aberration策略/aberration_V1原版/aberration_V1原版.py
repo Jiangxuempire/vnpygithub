@@ -5,6 +5,8 @@
 # 文件名称 ：aberrationstrategy.py
 # 开发工具 ： PyCharm
 import talib
+from vnpy.app.cta_strategy.base import StopOrderStatus
+
 from vnpy.trader.constant import Offset
 
 from vnpy.app.cta_strategy import (
@@ -28,9 +30,9 @@ class AberrationBias_V1_Strategy(CtaTemplate):
     author = "yunya"
 
     open_window = 15
-    boll_length = 560
-    boll_dev = 1.6
-    bias = 0.16
+    boll_length = 620
+    boll_dev = 2.2
+    bias = 0.19
     cci_length = 6
     cci_exit = 10.0
     fixed_size = 1
@@ -86,15 +88,10 @@ class AberrationBias_V1_Strategy(CtaTemplate):
         "boll_up",
         "boll_down",
         "boll_mid",
-        "bias_value",
         "cci_value",
         "exit_long",
-        "exit_short",
-        "boll_length_new",
-        "exit_long_nex",
-        "exit_long_last",
-        "exit_short_nex",
-        "exit_short_last",
+        "exit_short"
+        "bias_value",
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
@@ -103,6 +100,16 @@ class AberrationBias_V1_Strategy(CtaTemplate):
 
         self.bg = BarGenerator(self.on_bar, self.open_window, self.on_xmin_bar)
         self.am = ArrayManager(int(self.boll_length) * 2 + 10)
+
+        self.buy_price = 0
+        self.sell_price = 0
+        self.short_price = 0
+        self.cover_price = 0
+
+        self.buy_orderids = []
+        self.sell_orderids = []
+        self.short_orderids = []
+        self.cover_orderids = []
 
     def on_init(self):
         """
@@ -137,8 +144,6 @@ class AberrationBias_V1_Strategy(CtaTemplate):
 
     def on_xmin_bar(self, bar: BarData):
         """"""
-        self.cancel_all()
-
         am = self.am
         am.update_bar(bar)
         if not am.inited:
@@ -175,10 +180,20 @@ class AberrationBias_V1_Strategy(CtaTemplate):
             #   远离均线不开仓位
             if self.bias > abs(self.bias_value):
                 if self.cci_value > self.cci_exit:
-                    self.buy(self.boll_up, self.fixed_size, True)
+                    if not self.buy_orderids:
+                        self.buy_price = self.boll_up
+                        self.buy_orderids = self.buy(self.boll_up, self.fixed_size, True)
+
+                    elif self.buy_price != self.boll_up:
+                        self.cancel_orders(self.buy_orderids)
 
                 if self.cci_value < -self.cci_exit:
-                    self.short(self.boll_down, self.fixed_size, True)
+                    if not self.short_orderids:
+                        self.short_price = self.boll_down
+                        self.short_orderids = self.short(self.boll_down, self.fixed_size, True)
+
+                    elif self.short_price != self.boll_down:
+                        self.cancel_orders(self.short_orderids)
 
         elif self.pos > 0:
 
@@ -212,10 +227,16 @@ class AberrationBias_V1_Strategy(CtaTemplate):
                 self.exit_long = max(bar.close_price, self.exit_long)
 
             exit_long = (self.boll_mid + self.boll_mid_new[-1]) / 2
+
             if bar.close_price > exit_long:
                 self.exit_long = max(self.exit_long, exit_long)
 
-            self.sell(self.exit_long, abs(self.pos), True)
+            if not self.sell_orderids:
+                self.sell_price = self.exit_long
+                self.sell_orderids = self.sell(self.exit_long, abs(self.pos), True)
+
+            elif self.sell_price != self.exit_long:
+                self.cancel_orders(self.sell_orderids)
 
         elif self.pos < 0:
 
@@ -250,7 +271,12 @@ class AberrationBias_V1_Strategy(CtaTemplate):
             if bar.close_price < exit_short:
                 self.exit_short = min(self.exit_short, exit_short)
 
-            self.cover(self.exit_short, abs(self.pos), True)
+            if not self.cover_orderids:
+                self.cover_price = self.exit_short
+                self.cover_orderids = self.cover(self.exit_short, abs(self.pos), True)
+
+            elif self.cover_price != self.exit_short:
+                self.cancel_orders(self.cover_orderids)
 
         # # 画图专用
         # if self.singnal != self.singnal_list:
@@ -327,3 +353,60 @@ class AberrationBias_V1_Strategy(CtaTemplate):
         #
         #     else:
         #         self.singnal = None
+
+    def on_stop_order(self, stop_order: StopOrder):
+        """
+        Callback of stop order update.
+        """
+        # 只处理结束的停止单 如果订单是等待中就返回
+        if stop_order.status == StopOrderStatus.WAITING:
+            return
+
+        # 买入停止单
+        if stop_order.stop_orderid in self.buy_orderids:
+            # 移除委托号 已完成和已撤销的订单号
+            self.buy_orderids.remove(stop_order.stop_orderid)
+
+            # 如果没任何委托，清空
+            if not self.buy_orderids:
+                self.buy_price = 0
+
+            # 若是  已撤单，且目前无仓位，则立即重发
+            if stop_order.status == StopOrderStatus.CANCELLED and not self.pos:
+                self.buy_price = self.boll_up
+                self.buy_orderids = self.buy(self.boll_up, self.fixed_size, True)
+
+        elif stop_order.stop_orderid in self.short_orderids:
+            self.short_orderids.remove(stop_order.stop_orderid)
+
+            if not self.short_orderids:
+                self.short_price = 0
+
+            if stop_order.status == StopOrderStatus.CANCELLED and not self.pos:
+                self.short_price = self.boll_down
+                self.short_orderids = self.short(self.boll_down, self.fixed_size, True)
+
+        elif stop_order.stop_orderid in self.sell_orderids:
+            self.sell_orderids.remove(stop_order.stop_orderid)
+
+            if not self.sell_orderids:
+                self.sell_price = 0
+
+            if stop_order.status == StopOrderStatus.CANCELLED and self.pos > 0:
+                self.sell_price = self.exit_long
+                self.sell_orderids = self.sell(self.exit_long, abs(self.pos), True)
+
+        elif stop_order.stop_orderid in self.cover_orderids:
+            self.cover_orderids.remove(stop_order.stop_orderid)
+
+            if not self.cover_orderids:
+                self.cover_price = 0
+
+            if stop_order.status == StopOrderStatus.CANCELLED and self.pos < 0:
+                self.cover_price = self.exit_short
+                self.cover_orderids = self.cover(self.exit_short, abs(self.pos), True)
+
+    def cancel_orders(self, vt_orderids: list):
+        """"""
+        for vt_orderid in vt_orderids:
+            self.cancel_order(vt_orderid)

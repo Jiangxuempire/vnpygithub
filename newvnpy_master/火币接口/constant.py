@@ -40,6 +40,7 @@ class Status(Enum):
     FAIL = "报单失败"
 
 
+
 class Product(Enum):
     """
     Product class.
@@ -68,6 +69,7 @@ class OrderType(Enum):
     FOK = "FOK"
     RFQ = "询价"
     MakerPostOnly = "只做Maker"  # 只做Maker（Post only）
+
 
 
 class OptionType(Enum):

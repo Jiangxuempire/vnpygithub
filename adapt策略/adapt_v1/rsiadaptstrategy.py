@@ -31,7 +31,7 @@ class RsiAdaptStrategy(CtaTemplate):
 	"""
 	author = "yunya"
 
-	min_window = 45
+	max_window = 45
 	open_window = 15
 	rsi_length = 23
 	kk_length = 80
@@ -65,42 +65,41 @@ class RsiAdaptStrategy(CtaTemplate):
 	exit_short_nex = 0
 	exit_short_last = 0
 	atr_value = 0
-	
 
 	parameters = [
-			"open_window",
-			"min_window",
-			"rsi_length",
-			"kk_length",
-			"kk_dev",
-			"trading_size",
-			"atr_length",
+		"open_window",
+		"max_window",
+		"rsi_length",
+		"kk_length",
+		"kk_dev",
+		"trading_size",
+		"atr_length",
 	]
 
 	variables = [
-			"rsi_entry",
-			"long_stop",
-			"short_stop",
-			"rsi_value",
-			"rsi_up",
-			"rsi_dow",
-			"ema_mid",
-			"ema_length_new",
-			"current_ema_mid",
-			"last_ema_mid",
-			"current_close",
-			"last_close",
-			"front_close",
-			"exit_long",
-			"exit_short",
-			"long_entry",
-			"short_entry",
-			"long_stop_trade",
-			"short_stop_drade",
-			"exit_long_nex",
-			"exit_long_last",
-			"exit_short_nex",
-			"exit_short_last",
+		"rsi_entry",
+		"long_stop",
+		"short_stop",
+		"rsi_value",
+		"rsi_up",
+		"rsi_dow",
+		"ema_mid",
+		"ema_length_new",
+		"current_ema_mid",
+		"last_ema_mid",
+		"current_close",
+		"last_close",
+		"front_close",
+		"exit_long",
+		"exit_short",
+		"long_entry",
+		"short_entry",
+		"long_stop_trade",
+		"short_stop_drade",
+		"exit_long_nex",
+		"exit_long_last",
+		"exit_short_nex",
+		"exit_short_last",
 	]
 
 	def __init__(
@@ -113,19 +112,19 @@ class RsiAdaptStrategy(CtaTemplate):
 		""""""
 		super().__init__(cta_engine, strategy_name, vt_symbol, setting)
 
-		self.bg_xminute = NewBarGenerator(
+		self.bg_x = NewBarGenerator(
 			on_bar=self.on_bar,
-			window=self.min_window,
-			on_window_bar=self.on_xminute_bar
+			window=self.max_window,
+			on_window_bar=self.on_x_bar
 		)
-		self.am_xminute = ArrayManager(self.kk_length * 2 + 10)
+		self.am_x = ArrayManager(int(self.rsi_length * 2))
 
 		self.bg_open = NewBarGenerator(
 			on_bar=self.on_bar,
 			window=self.open_window,
-			on_window_bar=self.on_5min_bar
+			on_window_bar=self.on_open_bar
 		)
-		self.am_open = ArrayManager()
+		self.am_open = ArrayManager(int(self.kk_length * 2 + 2))
 
 	def on_init(self):
 		"""
@@ -156,10 +155,10 @@ class RsiAdaptStrategy(CtaTemplate):
 		"""
 		Callback of new bar data update.
 		"""
-		self.bg_xminute.update_bar(bar)
+		self.bg_x.update_bar(bar)
 		self.bg_open.update_bar(bar)
 
-	def on_5min_bar(self, bar: BarData):
+	def on_open_bar(self, bar: BarData):
 		"""
 		:param bar: 
 		:type bar: 
@@ -169,7 +168,7 @@ class RsiAdaptStrategy(CtaTemplate):
 		self.cancel_all()
 		self.am_open.update_bar(bar)
 
-		if not self.am_open.inited or not self.am_xminute.inited:
+		if not self.am_open.inited or not self.am_x.inited:
 			return
 
 		ema_mid_array = self.am_open.ema(self.kk_length, True)
@@ -208,7 +207,7 @@ class RsiAdaptStrategy(CtaTemplate):
 				self.ema_length_new -= 1
 				self.ema_length_new = max(self.ema_length_new, 5)
 
-			ema_mid_new = self.am_xminute.sma(self.ema_length_new, True)
+			ema_mid_new = self.am_x.sma(self.ema_length_new, True)
 			self.current_ema_mid = ema_mid_new[-1]
 			self.last_ema_mid = ema_mid_new[-2]
 			# 仓位是long 时，如果价格下穿新布林中轨
@@ -237,7 +236,7 @@ class RsiAdaptStrategy(CtaTemplate):
 			# print(f"我是多单，收盘价在两个中轨均值下方，以原中轨挂止损单:{self.exit_long},")
 			else:
 				self.exit_long = self.ema_mid
-			self.long_stop = max(self.exit_long,self.long_stop_trade)
+			self.long_stop = max(self.exit_long, self.long_stop_trade)
 			self.sell(self.long_stop, abs(self.pos), True)
 
 		elif self.pos < 0:
@@ -246,7 +245,7 @@ class RsiAdaptStrategy(CtaTemplate):
 				self.ema_length_new -= 1
 				self.ema_length_new = max(self.ema_length_new, 5)
 
-			ema_mid_new = self.am_xminute.sma(self.ema_length_new, True)
+			ema_mid_new = self.am_x.sma(self.ema_length_new, True)
 			self.current_ema_mid = ema_mid_new[-1]
 			self.last_ema_mid = ema_mid_new[-2]
 
@@ -273,59 +272,43 @@ class RsiAdaptStrategy(CtaTemplate):
 			else:
 				self.exit_short = self.ema_mid
 
-			self.short_stop = min(self.exit_short,self.short_stop_drade)
+			self.short_stop = min(self.exit_short, self.short_stop_drade)
 			self.cover(self.short_stop, abs(self.pos), True)
 
 		self.sync_data()
 		self.put_event()
 
-	def on_xminute_bar(self, bar: BarData):
+	def on_x_bar(self, bar: BarData):
 		"""
 		:param bar:
 		:return:
 		"""
-		self.am_xminute.update_bar(bar)
-		if not self.am_xminute.inited:
+		self.am_x.update_bar(bar)
+		if not self.am_x.inited:
 			return
 
-		ema_array = talib.EMA(self.am_xminute.close, self.rsi_length)
-		std_array = talib.EMA(self.am_xminute.close, self.rsi_length)
+		rsi_value = self.am_x.rsi(self.rsi_length)
 
-		dev_array = abs(self.am_xminute.close[:-1] - ema_array[:-1]) / std_array[:-1]
-		dev_max = max(dev_array[-self.rsi_length:])
+		rsi_array = talib.RSI(self.am_x.close[:-1], self.rsi_length)
+		rsi_ma = talib.SMA(rsi_array, self.rsi_length)
+		rsi_std = talib.STDDEV(rsi_array, self.rsi_length)
 
-		rsi_array = talib.RSI(self.am_xminute.close[:-1], self.rsi_length)
-		rsi_up_array = rsi_array + rsi_array * dev_max
-		rsi_dow_array = rsi_array - rsi_array * dev_max
+		rsi_dev_array = abs(rsi_array - rsi_ma) / rsi_std
+		dev_max = talib.MAX(rsi_dev_array, self.rsi_length)
 
-		rsi_value_array = self.am_xminute.rsi(self.rsi_length,True)
-		self.rsi_up = rsi_up_array[-1]
-		self.rsi_dow = rsi_dow_array[-1]
-
-		self.rsi_value = rsi_value_array[-1]
-		current_rsi = rsi_value_array[-1]
-		last_rsi = rsi_value_array[-2]
-		current_rsi_up = rsi_up_array[-1]
-		last_rsi_up = rsi_up_array[-2]
-		current_rsi_down = rsi_dow_array[-1]
-		last_rsi_down = rsi_dow_array[-2]
+		up = rsi_ma + rsi_std * dev_max
+		down = rsi_ma - rsi_std * dev_max
 		
-		con1 = current_rsi > current_rsi_up 
-		con2 = last_rsi <= last_rsi_up
-		con3 = current_rsi < current_rsi_down
-		con4 = last_rsi >= last_rsi_down
-
-		if con1 > con2:
-			self.rsi_entry = 1		
-		elif con3 and con4:
+		if rsi_value > up[-1]:
+			self.rsi_entry = 1
+			
+		elif rsi_value < down[-1]:
 			self.rsi_entry = -1
-
-		self.sync_data()
-
+			
 	def on_trade(self, trade: TradeData):
 		"""
-        Callback of new trade data update.
-        """
+		Callback of new trade data update.
+		"""
 		if trade.direction == Direction.LONG:
 			self.long_entry = trade.price  # 成交最高价
 			self.long_stop_trade = self.long_entry - 2 * self.atr_value
@@ -348,4 +331,3 @@ class RsiAdaptStrategy(CtaTemplate):
 		Callback of stop order update.
 		"""
 		self.put_event()
-

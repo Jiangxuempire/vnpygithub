@@ -7,7 +7,7 @@ from vnpy.app.cta_strategy import (
     OrderData,
     ArrayManager,
 )
-from vnpy.app.cta_strategy.base import EngineType
+from vnpy.app.cta_strategy.base import EngineType, StopOrderStatus
 from vnpy.app.cta_strategy.new_strategy import NewBarGenerator
 from vnpy.trader.constant import Interval, Direction, Offset
 import numpy as np
@@ -18,7 +18,7 @@ class BollVixV1(CtaTemplate):
     author = "yunya"
 
     open_window = 15
-    boll_length = 530
+    boll_length = 380
     fixed_size = 1
 
     boll_mid_current = 0
@@ -28,7 +28,6 @@ class BollVixV1(CtaTemplate):
     boll_down_current = 0
     boll_down_last = 0
     target_pos = 0
-    pos_inited = 0
     boll_mid = 0
 
     # # 画图专用
@@ -57,13 +56,11 @@ class BollVixV1(CtaTemplate):
     ]
 
     variables = [
-        "boll_mid_current",
-        "boll_mid_last",
+        "boll_mid",
         "boll_up_current",
         "boll_up_last",
         "boll_down_current",
-        "boll_down_last",
-        "target_pos"
+        "boll_down_last"
     ]
 
     def __init__(self, cta_engine, strategy_name, vt_symbol, setting):
@@ -73,16 +70,11 @@ class BollVixV1(CtaTemplate):
         self.bg = NewBarGenerator(self.on_bar, self.open_window, self.on_minute_bar, interval=Interval.MINUTE)
         self.am = ArrayManager(self.boll_length * 2)
 
-        self.up_array: np.ndarray = np.zeros(5)
-        self.down_array: np.ndarray = np.zeros(5)
-        self.boll_inited = False
-        self.boll_count = 0
+        self.sell_price = 0
+        self.cover_price = 0
 
-        self.engine_type = self.get_engine_type()
-        self.vt_orderids = []
-        self.order_price = 0
-
-        self.pos_inited = 0
+        self.sell_orderids = []
+        self.cover_orderids = []
 
     def on_init(self):
         """
@@ -119,7 +111,6 @@ class BollVixV1(CtaTemplate):
 
     def on_minute_bar(self, bar: BarData):
         """"""
-        self.cancel_all()
 
         am = self.am
         am.update_bar(bar)
@@ -144,7 +135,6 @@ class BollVixV1(CtaTemplate):
         self.boll_down_last = down[-2]
 
         if not self.pos:
-            self.pos_inited = 0
 
             if self.am.close[-1] > self.boll_up_current and self.am.close[-2] <= self.boll_up_last:
                 self.buy(bar.close_price, self.fixed_size)
@@ -153,10 +143,20 @@ class BollVixV1(CtaTemplate):
                 self.short(bar.close_price, self.fixed_size)
 
         elif self.pos > 0:
-            self.sell(self.boll_mid, abs(self.pos), True)
+            if not self.sell_orderids:
+                self.sell_price = self.boll_mid
+                self.sell_orderids = self.sell(self.boll_mid, abs(self.pos), True)
+
+            elif self.sell_price != self.boll_mid:
+                self.cancel_orders(self.sell_orderids)
 
         elif self.pos < 0:
-            self.cover(self.boll_mid, abs(self.pos), True)
+            if not self.cover_orderids:
+                self.cover_price = self.boll_mid
+                self.cover_orderids = self.cover(self.boll_mid, abs(self.pos), True)
+
+            elif self.cover_price != self.boll_mid:
+                self.cancel_orders(self.cover_orderids)
 
         # # 画图专用
         # if self.singnal != self.singnal_list:
@@ -228,4 +228,32 @@ class BollVixV1(CtaTemplate):
         """
         Callback of stop order update.
         """
-        pass
+        # 只处理结束的停止单 如果订单是等待中就返回
+        if stop_order.status == StopOrderStatus.WAITING:
+            return
+
+        if stop_order.stop_orderid in self.sell_orderids:
+            self.sell_orderids.remove(stop_order.stop_orderid)
+
+            if not self.sell_orderids:
+                self.sell_price = 0
+
+            if stop_order.status == StopOrderStatus.CANCELLED and self.pos > 0:
+                self.sell_price = self.boll_mid
+                self.sell_orderids = self.sell(self.boll_mid, abs(self.pos), True)
+
+        elif stop_order.stop_orderid in self.cover_orderids:
+            self.cover_orderids.remove(stop_order.stop_orderid)
+
+            if not self.cover_orderids:
+                self.cover_price = 0
+
+            if stop_order.status == StopOrderStatus.CANCELLED and self.pos < 0:
+                self.cover_price = self.boll_mid
+                self.cover_orderids = self.cover(self.boll_mid, abs(self.pos), True)
+
+    def cancel_orders(self, vt_orderids: list):
+        """"""
+        for vt_orderid in vt_orderids:
+            self.cancel_order(vt_orderid)
+

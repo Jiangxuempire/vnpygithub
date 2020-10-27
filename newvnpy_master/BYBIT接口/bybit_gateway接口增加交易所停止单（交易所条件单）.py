@@ -50,6 +50,18 @@ STATUS_BYBIT2VT: Dict[str, Status] = {
     "Deactivated": Status.CANCELLED,
 }
 
+STATUS_STOP_BYBIT2VT: Dict[str, Status] = {
+    "Created": Status.PARTTRADED,
+    "New": Status.NOTTRADED,
+    "PartiallyFilled": Status.PARTTRADED,
+    "Filled": Status.ALLTRADED,
+    "Cancelled": Status.CANCELLED,
+    "Rejected": Status.REJECTED,
+    "Active": Status.ALLTRADED,
+    "Untriggered": Status.NOTTRADED,
+    "Deactivated": Status.CANCELLED,
+}
+
 DIRECTION_VT2BYBIT: Dict[Direction, str] = {Direction.LONG: "Buy", Direction.SHORT: "Sell"}
 DIRECTION_BYBIT2VT: Dict[str, Direction] = {v: k for k, v in DIRECTION_VT2BYBIT.items()}
 
@@ -1053,10 +1065,10 @@ class BybitPrivateWebsocketApi(WebsocketClient):
             callback(packet)
 
     def on_error(
-        self,
-        exception_type: type,
-        exception_value: Exception,
-        tb
+            self,
+            exception_type: type,
+            exception_value: Exception,
+            tb
     ) -> None:
         """"""
         msg = f"触发异常，状态码：{exception_type}，信息：{exception_value}"
@@ -1150,7 +1162,7 @@ class BybitPrivateWebsocketApi(WebsocketClient):
                 direction=DIRECTION_BYBIT2VT[d["side"]],
                 price=float(d["trigger_price"]),
                 volume=d["qty"],
-                status=STATUS_BYBIT2VT[d["order_status"]],
+                status=STATUS_STOP_BYBIT2VT[d["order_status"]],  # 使用stop_order常量
                 datetime=dt,
                 gateway_name=self.gateway_name
             )

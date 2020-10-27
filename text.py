@@ -1,17 +1,19 @@
-import decimal
 
-d = decimal.Decimal(3)
-a = decimal.Decimal(3.1415926)
+import requests
 
-print(d)  # 3
-print(a)  # 3.14159260000000006840537025709636509418487548828125
-print(d + a + a)  # 9.283185200000000136810740514
 
-# 设置全局精度
-decimal.getcontext().prec = 2
-d = decimal.Decimal(3)
-a = decimal.Decimal('3.1415926')
-print(d)  # 3
-print(a)  # 3.1415926
-print(d + a + a)  # 9.28
+host = "https://api.hbdm.com/swap-ex/market/history/kline?contract_code=ZEC-USD&period=1min&from=1603610760&to=1603670760"
 
+
+_HOST = "https://api.hbdm.com/swap-ex/market/history/kline"
+
+params = {'symbol': 'ZEC-USD', 'period': '1min', 'from': 1603610760, 'to': 1603670760}
+requests = requests.request(
+    method="GET",
+    url=host,
+    # params=params
+
+)
+
+
+print(requests.json()["data"])

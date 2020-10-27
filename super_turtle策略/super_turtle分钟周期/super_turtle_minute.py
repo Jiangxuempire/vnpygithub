@@ -181,41 +181,41 @@ class SuperTurtleMinuteV1(CtaTemplate):
             elif self.cover_price != exit_up:
                 self.cancel_orders(self.cover_orderids)
 
-        # # 画图专用
-        if self.singnal != self.singnal_list:
-            plot = self.singnal
-        else:
-            plot = None
-
-        self.time_list.append(bar.datetime)
-        self.open_list.append(bar.open_price)
-        self.high_list.append(bar.high_price)
-        self.low_list.append(bar.low_price)
-        self.close_list.append(bar.close_price)
-        self.volume_list.append(bar.volume)
-        self.entry_up_list.append(self.entry_up)
-        self.entry_down_list.append(self.entry_down)
-        self.exit_up_list.append(self.exit_up)
-        self.exit_down_list.append(self.exit_down)
-
-        self.singnal_plot.append(plot)
-
-        self.plot_echarts = {
-            "datetime": self.time_list,
-            "open": self.open_list,
-            "high": self.high_list,
-            "low": self.low_list,
-            "close": self.close_list,
-            "volume": self.low_list,
-            "long_up": self.entry_up_list,
-            "short_down": self.entry_down_list,
-            "exit_up": self.exit_up_list,
-            "exit_down": self.exit_down_list,
-
-            "signal": self.singnal_plot
-
-        }
-        self.singnal_list = self.singnal
+        # # # 画图专用
+        # if self.singnal != self.singnal_list:
+        #     plot = self.singnal
+        # else:
+        #     plot = None
+        #
+        # self.time_list.append(bar.datetime)
+        # self.open_list.append(bar.open_price)
+        # self.high_list.append(bar.high_price)
+        # self.low_list.append(bar.low_price)
+        # self.close_list.append(bar.close_price)
+        # self.volume_list.append(bar.volume)
+        # self.entry_up_list.append(self.entry_up)
+        # self.entry_down_list.append(self.entry_down)
+        # self.exit_up_list.append(self.exit_up)
+        # self.exit_down_list.append(self.exit_down)
+        #
+        # self.singnal_plot.append(plot)
+        #
+        # self.plot_echarts = {
+        #     "datetime": self.time_list,
+        #     "open": self.open_list,
+        #     "high": self.high_list,
+        #     "low": self.low_list,
+        #     "close": self.close_list,
+        #     "volume": self.low_list,
+        #     "long_up": self.entry_up_list,
+        #     "short_down": self.entry_down_list,
+        #     "exit_up": self.exit_up_list,
+        #     "exit_down": self.exit_down_list,
+        #
+        #     "signal": self.singnal_plot
+        #
+        # }
+        # self.singnal_list = self.singnal
 
         self.put_event()
 
